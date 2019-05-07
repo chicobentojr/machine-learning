@@ -1,0 +1,8 @@
+{
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#192E4E",
+        "titleBar.activeBackground": "#23406D",
+        "titleBar.activeForeground": "#F8FAFD"
+    },
+    "python.pythonPath": "/home/chicobentojr/.local/share/virtualenvs/machine-learning-O7GLMwUd/bin/python"
+}
