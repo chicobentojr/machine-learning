@@ -30,8 +30,8 @@ def generate_tree(d, parent=None, parent_value=None):
     print('Original Entropy', original_entropy)
     print()
 
-    choosed_field = ''
-    choosed_gain = 0.0
+    chosen_field = ''
+    higher_gain = 0.0
 
     for attr in attrs:
         print(attr)
@@ -56,23 +56,23 @@ def generate_tree(d, parent=None, parent_value=None):
         print('Entropy', attr, '=', attr_entropy)
         print('Gain', attr, '=', attr_gain)
 
-        if attr_gain > choosed_gain:
-            choosed_gain, choosed_field = attr_gain, attr
+        if attr_gain > higher_gain:
+            higher_gain, chosen_field = attr_gain, attr
         print()
 
     print()
-    print('Choosed field', choosed_field)
-    print('Choosed Gain', choosed_gain)
+    print('Higher Gain', '=', higher_gain)
+    print('The chosen field is "{}"'.format(chosen_field))
     print()
 
     decision = AnyNode(parent,
                        type=NODE_TYPE_DECISION,
-                       field=choosed_field, value=parent_value)
+                       field=chosen_field, value=parent_value)
 
-    for v in d[choosed_field].unique():
-        print(choosed_field, v)
-        new_d = d[d.apply(lambda x: x[choosed_field] == v, axis=1)]
-        new_d = new_d.drop(choosed_field, 1)
+    for v in d[chosen_field].unique():
+        print(chosen_field, v)
+        new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
+        new_d = new_d.drop(chosen_field, 1)
         generate_tree(new_d, decision, v)
 
     return decision
@@ -80,40 +80,9 @@ def generate_tree(d, parent=None, parent_value=None):
 
 def create_decision_tree(filename, separator=';'):
     dataset = pd.read_csv(filename, sep=separator)
-
-    d = dataset
-
-    root = generate_tree(d)
+    root = generate_tree(dataset)
 
     print(RenderTree(root))
-
-#     print(dataset)
-#     print('-'*20)
-#     print('Summary')
-#     print(dataset.describe())
-#     print('-'*20)
-
-#     root = Node('root')
-#     tempo = Node('tempo', parent=root)
-#     temp = Node('temperatura', parent=root)
-#     jane = AnyNode(parent=root, field='Tempo')
-#     leaf = AnyNode(parent=jane, label='Não')
-
-#     print(jane)
-#     print(jane.field)
-
-#     print()
-#     print(RenderTree(root))
-#     print()
-#     print(dataset.columns)
-
-#     attriutes = dataset.columns
-
-#     Y = dataset[attriutes[len(attriutes) - 1]]
-#     print(Y)
-#     print()
-#     print(dataset.iloc[0, :])
-#     print()
 
 
 if __name__ == "__main__":
