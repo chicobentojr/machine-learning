@@ -10,15 +10,17 @@ def info_dataset(total, class_amount):
     return - (class_amount/total) * math.log2(class_amount/total)
 
 
-def generate_tree(d, parent=None, parent_value=None):
+def generate_tree(d, attributes, parent=None, parent_value=None):
     print('DATASET')
     print(d)
+    print('-'*50)
+    print('COLUMNS')
+    print(attributes)
     print('-'*50)
     print()
     original_entropy = 0.0
     y_field = d.columns[len(d.columns) - 1]
     original_classes = d[y_field].unique()
-    attrs = d.columns[:-1]
 
     if len(original_classes) == 1:
         return AnyNode(parent, type=NODE_TYPE_LABEL, label=original_classes[0], value=parent_value)
@@ -33,7 +35,7 @@ def generate_tree(d, parent=None, parent_value=None):
     chosen_field = ''
     higher_gain = 0.0
 
-    for attr in attrs:
+    for attr in attributes:
         print(attr)
         attr_entropy = 0.0
 
@@ -69,18 +71,20 @@ def generate_tree(d, parent=None, parent_value=None):
                        type=NODE_TYPE_DECISION,
                        field=chosen_field, value=parent_value)
 
+    attributes.remove(chosen_field)
+
     for v in d[chosen_field].unique():
         print(chosen_field, v)
         new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
         new_d = new_d.drop(chosen_field, 1)
-        generate_tree(new_d, decision, v)
+        generate_tree(new_d, attributes, decision, v)
 
     return decision
 
 
 def create_decision_tree(filename, separator=';'):
     dataset = pd.read_csv(filename, sep=separator)
-    root = generate_tree(dataset)
+    root = generate_tree(dataset, dataset.columns[:-1].tolist())
 
     print(RenderTree(root))
 
