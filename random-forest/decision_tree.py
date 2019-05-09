@@ -97,10 +97,33 @@ def create_decision_tree(filename, separator=';'):
     root = generate_tree(dataset, dataset.columns[:-1].tolist())
 
     print(RenderTree(root))
+
+    return root
     # DotExporter(root).to_picture('{}.png'.format(filename.replace('.csv', '')))
 
 
+def classify_instance(decision_tree, instance):
+    print(instance)
+
+
 if __name__ == "__main__":
-    create_decision_tree('datasets/benchmark.csv')
+    decision_tree = create_decision_tree('datasets/benchmark.csv')
+    print(RenderTree(decision_tree))
+    print()
+
+    test_instances = pd.DataFrame({
+        'Tempo': ['Ensolarado', 'Nublado'],
+        'Temperatura': ['Quente', 'Fria'],
+        'Umidade': ['Normal', 'Alta'],
+        'Ventoso': ['Verdadeiro', 'Falso'],
+        'Jogar': ['?', '?']
+    })
+
+    # test_instances.apply(lambda item: classify_instance(
+    #     decision_tree, item), axis=1)
+
+    for index, instance in test_instances.iterrows():
+        classify_instance(decision_tree, instance)
+
     # create_decision_tree('datasets/test.csv', ',')
     # create_decision_tree('datasets/wrong.csv', ',')
