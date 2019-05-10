@@ -77,7 +77,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
     original_entropy = 0.0
     y_field = d.columns[len(d.columns) - 1]
     original_classes = d[y_field].unique()
-    attributes = d.columns[:-1].tolist()
+    # attributes = d.columns[:-1].tolist()
     most_frequent_label = d[y_field].max()
 
     print('COLUMNS')
@@ -99,7 +99,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
     print('Original Entropy', original_entropy)
     print()
 
-    chosen_field = ''
+    chosen_field = attributes[0]
     higher_gain = 0.0
 
     for attr in attributes:
@@ -118,6 +118,9 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
     print('Higher Gain', '=', higher_gain)
     print('The chosen field is "{}"'.format(chosen_field))
     print()
+
+    # attributes.remove(chosen_field)
+    attributes = [x for x in attributes if x != chosen_field]
 
     if pd.api.types.is_string_dtype(d[chosen_field]):
         decision = AnyNode(parent,
@@ -152,8 +155,6 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
                               x[chosen_field] <= maximum, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
             generate_tree(new_d, attributes, decision, middle)
-
-    # attributes.remove(chosen_field)
 
     return decision
 
