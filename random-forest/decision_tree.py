@@ -95,35 +95,36 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
 def create_decision_tree(filename, separator=';'):
     dataset = pd.read_csv(filename, sep=separator)
     root = generate_tree(dataset, dataset.columns[:-1].tolist())
-
-    print(RenderTree(root))
-
     return root
-    # DotExporter(root).to_picture('{}.png'.format(filename.replace('.csv', '')))
 
 
 def classify_instance(decision_tree, instance):
-    print(instance)
+    node = decision_tree
+    while node.type != NODE_TYPE_LABEL:
+        v = instance[node.field]
+        for child in node.children:
+            if v == child.value:
+                node = child
+                break
+
+    return node.label
 
 
 if __name__ == "__main__":
     decision_tree = create_decision_tree('datasets/benchmark.csv')
+
     print(RenderTree(decision_tree))
     print()
+    # DotExporter(root).to_picture('{}.png'.format(filename.replace('.csv', '')))
 
     test_instances = pd.DataFrame({
-        'Tempo': ['Ensolarado', 'Nublado'],
+        'Tempo': ['Ensolarado', 'Chuvoso'],
         'Temperatura': ['Quente', 'Fria'],
         'Umidade': ['Normal', 'Alta'],
-        'Ventoso': ['Verdadeiro', 'Falso'],
+        'Ventoso': ['Verdadeiro', 'Verdadeiro'],
         'Jogar': ['?', '?']
     })
 
-    # test_instances.apply(lambda item: classify_instance(
-    #     decision_tree, item), axis=1)
-
     for index, instance in test_instances.iterrows():
-        classify_instance(decision_tree, instance)
-
-    # create_decision_tree('datasets/test.csv', ',')
-    # create_decision_tree('datasets/wrong.csv', ',')
+        print('Instance', instance.index, '\n', instance.values)
+        print('Result', classify_instance(decision_tree, instance))
