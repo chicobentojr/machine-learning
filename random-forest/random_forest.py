@@ -9,6 +9,34 @@ def get_dataset_fold(d, fold_length):
     return d.sample(fold_length)
 
 
+def get_dataset_bootstrap(d):
+
+    training = None
+    test = None
+    indexes = []
+
+    for a in range(len(d)):
+        indexes.append(random.randint(0, len(d) - 1))
+        # print(indexes)
+
+    selected_rows = d.index.isin(indexes)
+
+    training = d[selected_rows]
+    test = d[~selected_rows]
+
+    print('indexes')
+    print(indexes)
+    print()
+    print('training')
+    print(training)
+    print()
+    print('test')
+    print(test)
+    print()
+
+    return (training, test)
+
+
 def forest_decision(trees_predictions):
     most_commom = max(set(trees_predictions), key=trees_predictions.count)
     return most_commom
@@ -62,6 +90,10 @@ def main():
 def create(filename, separator, tree_amount, attributes_amount):
     """Create a random forest based on a train dataset"""
     dataset = pd.read_csv(filename, sep=separator)
+
+    for x in range(2):
+        get_dataset_bootstrap(dataset)
+    return
 
     attributes = dataset.columns[:-1].tolist()
 
