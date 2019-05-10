@@ -1,5 +1,6 @@
 import pandas as pd
 import math
+import click
 from anytree import Node, RenderTree, AnyNode
 from anytree.dotexport import DotExporter
 
@@ -92,6 +93,40 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
     return decision
 
 
+@click.group()
+def main():
+    pass
+
+
+@main.command(name='create')
+@click.argument('filename')
+@click.option('--separator', '-s', default=';', help='your custom csv separator (e.g.: , or ;)')
+@click.option('--image-output', '-img', help='a filename to storage the result decision tree.\nNeeds graphviz installed')
+def create(filename, separator, image_output):
+    """Create a decision tree based on a train dataset"""
+    decision_tree = create_decision_tree(filename, separator=separator)
+
+    print(RenderTree(decision_tree))
+    print()
+
+    if image_output:
+        if not image_output.endswith('.png'):
+            image_output += '.png'
+        DotExporter(decision_tree).to_picture(image_output)
+
+    test_instances = pd.DataFrame({
+        'Tempo': ['Ensolarado', 'Chuvoso'],
+        'Temperatura': ['Quente', 'Fria'],
+        'Umidade': ['Normal', 'Alta'],
+        'Ventoso': ['Verdadeiro', 'Verdadeiro'],
+        'Jogar': ['?', '?']
+    })
+
+    for idx, instance in test_instances.iterrows():
+        print('Instance', instance.index, '\n', instance.values)
+        print('Result', classify_instance(decision_tree, instance))
+
+
 def create_decision_tree(filename, separator=';'):
     dataset = pd.read_csv(filename, sep=separator)
     root = generate_tree(dataset, dataset.columns[:-1].tolist())
@@ -111,20 +146,4 @@ def classify_instance(decision_tree, instance):
 
 
 if __name__ == "__main__":
-    decision_tree = create_decision_tree('datasets/benchmark.csv')
-
-    print(RenderTree(decision_tree))
-    print()
-    # DotExporter(root).to_picture('{}.png'.format(filename.replace('.csv', '')))
-
-    test_instances = pd.DataFrame({
-        'Tempo': ['Ensolarado', 'Chuvoso'],
-        'Temperatura': ['Quente', 'Fria'],
-        'Umidade': ['Normal', 'Alta'],
-        'Ventoso': ['Verdadeiro', 'Verdadeiro'],
-        'Jogar': ['?', '?']
-    })
-
-    for index, instance in test_instances.iterrows():
-        print('Instance', instance.index, '\n', instance.values)
-        print('Result', classify_instance(decision_tree, instance))
+    main()
