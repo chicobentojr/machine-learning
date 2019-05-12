@@ -1,9 +1,14 @@
 import pandas as pd
 import math
+import logging
 import click
+import click_log
 from pandas.api.types import is_string_dtype, is_numeric_dtype
 from anytree import Node, RenderTree, AnyNode
 from anytree.dotexport import DotExporter
+
+logger = logging.getLogger(__name__)
+click_log.basic_config(logger)
 
 NODE_TYPE_DECISION = 'D'
 NODE_TYPE_LABEL = 'L'
@@ -66,13 +71,13 @@ def get_attribute_entropy(d, attr):
     return attr_entropy
 
 
-def generate_tree(d, attributes, parent=None, parent_value=None):
-    print('DATASET')
-    print(d)
-    print('-'*50)
-    print('SUMMARY')
-    print(d.describe())
-    print('-'*50)
+def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, logger=logger):
+    logger.debug('DATASET')
+    logger.debug(d)
+    logger.debug('-'*50)
+    logger.debug('SUMMARY')
+    logger.debug(d.describe())
+    logger.debug('-'*50)
 
     original_entropy = 0.0
     y_field = d.columns[len(d.columns) - 1]
@@ -80,10 +85,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
     # attributes = d.columns[:-1].tolist()
     most_frequent_label = d[y_field].max()
 
-    print('COLUMNS')
-    print(attributes)
-    print('-'*50)
-    print()
+    logger.debug('COLUMNS')
+    logger.debug(attributes)
+    logger.debug('-'*50)
+    logger.debug('')
 
     if len(original_classes) == 1:
         return AnyNode(parent, type=NODE_TYPE_LABEL, label=original_classes[0], value=parent_value,
@@ -96,28 +101,28 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
         d_c = d[d.apply(lambda x: x[y_field] == c, axis=1)]
         original_entropy += info_dataset(len(d), len(d_c))
 
-    print('Original Entropy', original_entropy)
-    print()
+    logger.debug('Original Entropy {}'.format(original_entropy))
+    logger.debug('')
 
     chosen_field = attributes[0]
     higher_gain = 0.0
 
     for attr in attributes:
-        print(attr)
+        logger.debug(attr)
         attr_entropy = get_attribute_entropy(d, attr)
 
         attr_gain = original_entropy - attr_entropy
-        print('Entropy', attr, '=', attr_entropy)
-        print('Gain', attr, '=', attr_gain)
+        logger.debug('Entropy {} = {}'.format(attr, attr_entropy))
+        logger.debug('Gain {} = {}'.format(attr, attr_gain))
 
         if attr_gain > higher_gain:
             higher_gain, chosen_field = attr_gain, attr
-        print()
+        logger.debug('')
 
-    print()
-    print('Higher Gain', '=', higher_gain)
-    print('The chosen field is "{}"'.format(chosen_field))
-    print()
+    logger.debug('')
+    logger.debug('Higher Gain = {}'.format(higher_gain))
+    logger.debug('The chosen field is "{}"'.format(chosen_field))
+    logger.debug('')
 
     # attributes.remove(chosen_field)
     attributes = [x for x in attributes if x != chosen_field]
@@ -131,7 +136,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
                            label=most_frequent_label)
 
         for v in d[chosen_field].unique():
-            print(chosen_field, v)
+            logger.debug('{} {}'.format(chosen_field, v))
             new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
             generate_tree(new_d, attributes, decision, v)
@@ -150,7 +155,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None):
         max = d[chosen_field].max()
 
         for minimum, maximum in [(min - 1, middle), (middle, max)]:
-            print(chosen_field, minimum, maximum)
+            logger.debug('{} {} {}'.format(chosen_field, minimum, maximum))
             new_d = d[d.apply(lambda x: minimum <
                               x[chosen_field] <= maximum, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
@@ -193,6 +198,7 @@ def main():
 
 
 @main.command(name='create')
+@click_log.simple_verbosity_option(logger)
 @click.argument('filename')
 @click.option('--separator', '-s', default=';', help='your custom csv separator (e.g.: , or ;)')
 @click.option('--image-output', '-img', help='a filename to storage the result decision tree.\nNeeds graphviz installed')
@@ -200,8 +206,8 @@ def create(filename, separator, image_output):
     """Create a decision tree based on a train dataset"""
     decision_tree = create_decision_tree(filename, separator=separator)
 
-    print(RenderTree(decision_tree))
-    print()
+    logger.debug(RenderTree(decision_tree))
+    logger.debug('')
 
     if image_output:
         if not image_output.endswith('.png'):
@@ -217,8 +223,9 @@ def create(filename, separator, image_output):
     })
 
     for idx, instance in test_instances.iterrows():
-        print('Instance', instance.index, '\n', instance.values)
-        print('Result', classify_instance(decision_tree, instance))
+        logger.debug('Instance {}\n{}'.format(instance.index, instance.values))
+        logger.debug('Result {}'.format(
+            classify_instance(decision_tree, instance)))
 
 
 if __name__ == "__main__":
