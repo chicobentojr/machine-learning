@@ -1,3 +1,4 @@
+import os
 import logging
 import math
 import random
@@ -6,6 +7,7 @@ import click
 import click_log
 import decision_tree as dt
 from anytree import RenderTree
+from anytree.exporter import JsonExporter, DotExporter
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -104,17 +106,28 @@ def main():
 @click.option('--tree-amount', '-t', default=1, help='your tree amount per forest')
 @click.option('--attributes-amount', '-a', default=0, help='your attributes number to generate each tree')
 @click.option('--k-fold', '-k', default=5, help='your number of folds to cross validation')
-def create(filename, separator, tree_amount, attributes_amount, k_fold):
+@click.option('--json-folder', '-json', default='', help='your folder to save result trees in JSON format')
+@click.option('--img-folder', '-img', default='', help='your folder to save result trees in PNG format')
+def create(filename, separator, tree_amount, attributes_amount, k_fold, json_folder, img_folder):
     """Create a random forest based on a CSV dataset"""
 
     dataset = pd.read_csv(filename, sep=separator)
+
+    if json_folder:
+        json_exporter = JsonExporter(indent=2)
+        if not os.path.exists(json_folder):
+            os.makedirs(json_folder)
+
+    if img_folder:
+        if not os.path.exists(img_folder):
+            os.makedirs(img_folder)
 
     if attributes_amount == 0:
         attributes_amount = int(math.sqrt(attributes_amount))
 
     folds = generate_folds(dataset, k_fold)
 
-    for train, test in folds:
+    for fold_index, (train, test) in enumerate(folds):
         attributes = dataset.columns[:-1].tolist()
 
         trees = []
@@ -132,6 +145,10 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold):
             trees.append(tree)
             trees_attributes.append(attrs)
 
+            if img_folder:
+                DotExporter(tree).to_picture(
+                    '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), fold_index + 1, i + 1))
+
         for index, tree in enumerate(trees):
             logger.debug(f'Tree {index+1}')
             logger.debug('Attributes')
@@ -139,6 +156,9 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold):
             logger.debug('-'*50)
             logger.debug(RenderTree(tree))
             logger.debug('-'*50)
+            if json_folder:
+                with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), fold_index + 1, index + 1), 'w') as tree_file:
+                    tree_file.write(json_exporter.export(tree))
 
         test_trees(test, trees)
 
