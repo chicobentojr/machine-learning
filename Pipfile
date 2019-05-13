@@ -8,6 +8,8 @@ pandas = "*"
 anytree = "*"
 click = "*"
 click-log = "*"
+jupyter = "*"
+graphviz = "*"
 
 [dev-packages]
 pylint = "*"
