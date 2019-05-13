@@ -12,6 +12,23 @@ click_log.basic_config(logger)
 
 NODE_TYPE_DECISION = 'D'
 NODE_TYPE_LABEL = 'L'
+NODE_NAME_SEPARATOR = '\n'
+
+def node_attr_func(node):
+    parts = node.name.split(NODE_NAME_SEPARATOR)
+    return 'label="%s"' % (parts[-1])
+    
+def edge_attr_func(node, child):
+    return 'label="%s"' % (str(child.value))
+
+def edge_type_func(node, child):
+    return '--'
+
+def export_dot(tree):
+    return DotExporter(tree, graph="graph",
+                       nodeattrfunc=node_attr_func,
+                       edgeattrfunc=edge_attr_func,
+                       edgetypefunc=edge_type_func)
 
 
 def info_dataset(total, class_amount):
@@ -92,10 +109,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
 
     if len(original_classes) == 1:
         return AnyNode(parent, type=NODE_TYPE_LABEL, label=original_classes[0], value=parent_value,
-                       name='{}= {}'.format(parent_value + '\n' if isinstance(parent_value, str) else '', original_classes[0]))
+                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '', original_classes[0]))
     elif not attributes:
         return AnyNode(parent, type=NODE_TYPE_LABEL, label=most_frequent_label, value=parent_value,
-                       name='{}= {}'.format(parent_value + '\n' if isinstance(parent_value, str) else '', most_frequent_label))
+                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '', most_frequent_label))
 
     for c in original_classes:
         d_c = d[d.apply(lambda x: x[y_field] == c, axis=1)]
@@ -130,8 +147,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     if pd.api.types.is_string_dtype(d[chosen_field]):
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
-                           name='{}\n{}?'.format(
-                               parent_value + '\n' if parent_value else '', chosen_field),
+                           name='{}{}{}?'.format(
+                               parent_value + NODE_NAME_SEPARATOR if parent_value else '',
+                               NODE_NAME_SEPARATOR,
+                               chosen_field),
                            field=chosen_field, value=parent_value,
                            label=most_frequent_label)
 
@@ -145,8 +164,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
         number = get_numeric_attribute_split(d, chosen_field)
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
-                           name='{}\n{} <= {}?'.format(
-                               parent_value + '\n' if parent_value else '', chosen_field, number),
+                           name='{}{}{} <= {}?'.format(
+                               parent_value + NODE_NAME_SEPARATOR if parent_value else '',
+                               NODE_NAME_SEPARATOR,
+                               chosen_field, number),
                            field=chosen_field, value=parent_value,
                            label=most_frequent_label)
 
@@ -202,6 +223,7 @@ def main():
 @click.argument('filename')
 @click.option('--separator', '-s', default=';', help='your custom csv separator (e.g.: , or ;)')
 @click.option('--image-output', '-img', help='a filename to storage the result decision tree.\nNeeds graphviz installed')
+
 def create(filename, separator, image_output):
     """Create a decision tree based on a train dataset"""
     decision_tree = create_decision_tree(filename, separator=separator)
@@ -212,8 +234,8 @@ def create(filename, separator, image_output):
     if image_output:
         if not image_output.endswith('.png'):
             image_output += '.png'
-        DotExporter(decision_tree).to_picture(image_output)
-
+        export_dot(decision_tree).to_picture(image_output)
+    
     test_instances = pd.DataFrame({
         'Tempo': ['Ensolarado', 'Chuvoso'],
         'Temperatura': ['Quente', 'Fria'],
