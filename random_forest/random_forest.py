@@ -13,6 +13,32 @@ logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 
 
+def get_labels_filtered(labels):
+    if len(labels) == 2:
+        labels.sort()
+        labels.reverse()
+    return labels
+
+
+def get_pretty_confusion_matrix(matrix, sep='-'):
+    labels = set()
+    for key in matrix.keys():
+        x, y = key.split(sep)
+        labels.add(x)
+        labels.add(y)
+    labels = get_labels_filtered(list(labels))
+
+    r = '\t{}\n'.format('\t'.join(labels))
+    for x_label in labels:
+        line = '{}\t'.format(x_label)
+        for y_label in labels:
+            line += '{}\t'.format(
+                matrix['{}-{}'.format(x_label, y_label)])
+        r += '{}\n'.format(line)
+
+    return r
+
+
 def get_dataset_bootstrap(d):
 
     training = pd.DataFrame()
@@ -60,38 +86,51 @@ def forest_decision(trees_predictions):
     return most_commom
 
 
-def test_trees(test_data, trees):
+def test_forest(test_data, forest):
     label_field = test_data.columns[-1]
-    real_labels = test_data[label_field].values
+    real_labels = test_data[label_field]
 
     predicted_labels = []
     for (index, (_, row)) in enumerate(test_data.iterrows()):
         predicted_labels.append([])
-        for tree in trees:
+        for tree in forest:
             predicted_label = dt.classify_instance(tree, row)
             predicted_labels[index].append(predicted_label)
 
     logger.info('PREDICTIONS')
     logger.info('')
-    logger.info('\t'.join(['Tree {}'.format(i+1) for i in range(len(trees))]))
+    logger.info('\t'.join(['Tree {}'.format(i+1) for i in range(len(forest))]))
     for p in predicted_labels:
         logger.info('\t'.join(p))
     logger.info('-'*50)
     logger.info('')
     logger.info('Forest Predicted\tReal')
+    logger.info('-'*30)
 
-    correct_amount = 0
+    # correct_amount = 0
+    # true_positive = 0
+    # true_negative = 0
+    # false_positive = 0
+    # false_negative = 0
+    confusion_matrix = {}
+    possible_labels = get_labels_filtered(real_labels.unique().tolist()
+                                          )
+    for x_label in possible_labels:
+        for y_label in possible_labels:
+            confusion_matrix['{}-{}'.format(x_label, y_label)] = 0
 
     for index, predictions in enumerate(predicted_labels):
-        if forest_decision(predictions) == real_labels[index]:
-            correct_amount += 1
-        logger.info('{}\t\t\t{}'.format(
-            forest_decision(predictions), real_labels[index]))
+        prediction = forest_decision(predictions)
+        real_label = real_labels.values[index]
+        if '{}-{}'.format(real_label, predicted_label):
+            confusion_matrix['{}-{}'.format(real_label, prediction)] += 1
 
-    accuracy = correct_amount / len(real_labels)
-    logger.info('')
-    logger.info('Accuracy {:0.2f}%'.format(100 * accuracy))
-    logger.info('')
+        logger.info('{}\t\t\t{}'.format(prediction, real_label))
+
+    print()
+    logger.info('Confusion Matrix')
+    logger.info(get_pretty_confusion_matrix(confusion_matrix))
+    return confusion_matrix
 
 
 @click.group()
@@ -108,10 +147,12 @@ def main():
 @click.option('--k-fold', '-k', default=5, help='your number of folds to cross validation')
 @click.option('--json-folder', '-json', default='', help='your folder to save result trees in JSON format')
 @click.option('--img-folder', '-img', default='', help='your folder to save result trees in PNG format')
-def create(filename, separator, tree_amount, attributes_amount, k_fold, json_folder, img_folder):
+@click.option('--bootstrap', is_flag=True)
+def create(filename, separator, tree_amount, attributes_amount, k_fold, json_folder, img_folder, bootstrap):
     """Create a random forest based on a CSV dataset"""
 
     dataset = pd.read_csv(filename, sep=separator)
+    attributes = dataset.columns[:-1].tolist()
 
     if json_folder:
         json_exporter = JsonExporter(indent=2)
@@ -125,42 +166,69 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
     if attributes_amount == 0:
         attributes_amount = int(math.sqrt(attributes_amount))
 
-    folds = generate_folds(dataset, k_fold)
+    if bootstrap:
+        print('BOOTSTRAP')
+        print('Dataset')
+        print(dataset)
+        print()
+        train, test = get_dataset_bootstrap(dataset)
+        print('train')
+        print(train)
+        print()
+        print('test')
+        print(test)
+        print()
 
-    for fold_index, (train, test) in enumerate(folds):
-        attributes = dataset.columns[:-1].tolist()
-
-        trees = []
+        forest = []
         trees_attributes = []
         for i in range(tree_amount):
-            bootstrap_train, _ = get_dataset_bootstrap(train)
-
             if attributes_amount != -1:
                 random.shuffle(attributes)
                 attrs = attributes[:attributes_amount]
             else:
                 attrs = attributes
 
-            tree = dt.generate_tree(bootstrap_train, attrs, logger=logger)
-            trees.append(tree)
+            tree = dt.generate_tree(train, attrs, logger=logger)
+            forest.append(tree)
             trees_attributes.append(attrs)
 
-            if img_folder:
-                DotExporter(tree).to_picture(
-                    '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), fold_index + 1, i + 1))
+        test_forest(test, forest)
 
-        for index, tree in enumerate(trees):
-            logger.debug(f'Tree {index+1}')
-            logger.debug('Attributes')
-            logger.debug(trees_attributes[index])
-            logger.debug('-'*50)
-            logger.debug(RenderTree(tree))
-            logger.debug('-'*50)
-            if json_folder:
-                with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), fold_index + 1, index + 1), 'w') as tree_file:
-                    tree_file.write(json_exporter.export(tree))
+    else:
+        folds = generate_folds(dataset, k_fold)
 
-        test_trees(test, trees)
+        for fold_index, (train, test) in enumerate(folds):
+            forest = []
+            trees_attributes = []
+            for i in range(tree_amount):
+                bootstrap_train, _ = get_dataset_bootstrap(train)
+
+                if attributes_amount != -1:
+                    random.shuffle(attributes)
+                    attrs = attributes[:attributes_amount]
+                else:
+                    attrs = attributes
+
+                tree = dt.generate_tree(bootstrap_train, attrs, logger=logger)
+                forest.append(tree)
+                trees_attributes.append(attrs)
+
+                if img_folder:
+                    DotExporter(tree).to_picture(
+                        '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), fold_index + 1, i + 1))
+
+            for index, tree in enumerate(forest):
+                logger.debug(f'Tree {index+1}')
+                logger.debug('Attributes')
+                logger.debug(trees_attributes[index])
+                logger.debug('-'*50)
+                logger.debug(RenderTree(tree))
+                logger.debug('-'*50)
+                if json_folder:
+                    with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), fold_index + 1, index + 1), 'w') as tree_file:
+                        tree_file.write(json_exporter.export(tree))
+
+            test_forest(test, forest)
 
 
 if __name__ == "__main__":
