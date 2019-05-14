@@ -5,6 +5,7 @@ import random
 import pandas as pd
 import click
 import click_log
+import json
 import decision_tree as dt
 from functools import reduce
 from anytree import RenderTree
@@ -18,6 +19,10 @@ ERROR_RATE = 'error_rate'
 RECALL = 'recall'
 PRECISION = 'precision'
 LABELS = 'labels'
+PRECISION_MACRO = 'precision_macro'
+PRECISION_MICRO = 'precision_micro'
+RECALL_MACRO = 'recall_macro'
+RECALL_MICRO = 'recall_micro'
 
 
 def get_labels_filtered(labels):
@@ -27,37 +32,50 @@ def get_labels_filtered(labels):
     return labels
 
 
-def get_labels_from_confusion_matrix(matrix, sep='-'):
+def get_labels_from_confusion_matrix(matrix_dict, sep='-'):
     labels = set()
-    for key in matrix.keys():
+    for key in matrix_dict.keys():
         x, y = key.split(sep)
         labels.add(x)
         labels.add(y)
     return get_labels_filtered(list(labels))
 
 
-def get_pretty_confusion_matrix(matrix, sep='-'):
-    labels = get_labels_from_confusion_matrix(matrix, sep)
-
+def get_pretty_confusion_matrix(matrix_dict, sep='-'):
+    labels = get_labels_from_confusion_matrix(matrix_dict, sep)
+    m = []
     r = '\t{}\n'.format('\t'.join(labels))
-    for x_label in labels:
+    for index, x_label in enumerate(labels):
         line = '{}\t'.format(x_label)
+        m.append([])
         for y_label in labels:
             line += '{}\t'.format(
-                matrix['{}{}{}'.format(x_label, sep, y_label)])
+                matrix_dict['{}{}{}'.format(x_label, sep, y_label)])
+            m[index].append(
+                matrix_dict['{}{}{}'.format(x_label, sep, y_label)])
         r += '{}\n'.format(line)
-
+    print(r)
+    for n in m:
+        print(n)
     return r
 
 
 def get_evaluation_metrics(matrix, sep='-'):
     labels = get_labels_from_confusion_matrix(matrix, sep)
     n = reduce((lambda x, y: x + y), matrix.values())
-    print(n)
+    logger.debug('Total predicted: {}'.format(n))
     metrics = {
         ACCURACY: 0,
+        PRECISION_MACRO: 0,
+        PRECISION_MICRO: 0,
+        RECALL_MACRO: 0,
+        RECALL_MICRO: 0,
         LABELS: {}
     }
+    total_vp = 0
+    total_fp = 0
+    total_fn = 0
+
     for x in labels:
         metrics[ACCURACY] += matrix['{}{}{}'.format(x, sep, x)]
         metrics[LABELS][x] = {'vp': 0, 'fp': 0, 'fn': 0}
@@ -68,9 +86,26 @@ def get_evaluation_metrics(matrix, sep='-'):
             else:
                 metrics[LABELS][x]['fp'] = matrix['{}{}{}'.format(y, sep, x)]
                 metrics[LABELS][x]['fn'] = matrix['{}{}{}'.format(x, sep, y)]
+        vp = metrics[LABELS][x]['vp']
+        fn = metrics[LABELS][x]['fn']
+        fp = metrics[LABELS][x]['fp']
+
+        total_vp += vp
+        total_fp += fp
+        total_fn += fn
+
+        metrics[LABELS][x][PRECISION] = vp / (vp + fp) if vp > 0 else 0
+        metrics[LABELS][x][RECALL] = vp / (vp + fn) if vp > 0 else 0
+
+        metrics[PRECISION_MACRO] += metrics[LABELS][x][PRECISION]
+        metrics[RECALL_MACRO] += metrics[LABELS][x][RECALL]
 
     metrics[ACCURACY] = metrics[ACCURACY] / n
     metrics[ERROR_RATE] = 1 - metrics[ACCURACY]
+    metrics[PRECISION_MACRO] = metrics[PRECISION_MACRO] / len(labels)
+    metrics[PRECISION_MICRO] = total_vp / (total_vp + total_fp)
+    metrics[RECALL_MACRO] = metrics[RECALL_MACRO] / len(labels)
+    metrics[RECALL_MICRO] = total_vp / (total_vp + total_fn)
 
     return metrics
 
@@ -122,6 +157,32 @@ def forest_decision(trees_predictions):
     return most_commom
 
 
+def get_f_measure(precision, recall, beta=1.0):
+    return (1 + math.pow(beta, 2)) * ((precision * recall)/((math.pow(beta, 2) * precision) + recall))
+
+
+def processing_result_metrics(metrics):
+    accuracy = metrics[ACCURACY]
+    print()
+    print('Accuracy {}'.format(accuracy))
+    print('Error rate {}'.format(1 - accuracy))
+
+    for label in metrics[LABELS].keys():
+        print('Processing {}'.format(label))
+
+        vp = metrics[LABELS][label]['vp']
+        fn = metrics[LABELS][label]['fn']
+        fp = metrics[LABELS][label]['fp']
+
+        precision = vp / (vp + fp) if vp > 0 else 0
+        recall = vp / (vp + fn) if vp > 0 else 0
+
+        print('\tPrecision: {}'.format(precision))
+        print('\tRecall: {}'.format(recall))
+        print('\tF-Measure: {}'.format(get_f_measure(precision, recall)))
+        print()
+
+
 def test_forest(test_data, forest):
     label_field = test_data.columns[-1]
     real_labels = test_data[label_field]
@@ -137,15 +198,16 @@ def test_forest(test_data, forest):
             if not predicted_label in unique_labels:
                 unique_labels.append(predicted_label)
 
-    logger.info('PREDICTIONS')
-    logger.info('')
-    logger.info('\t'.join(['Tree {}'.format(i+1) for i in range(len(forest))]))
+    logger.debug('PREDICTIONS')
+    logger.debug('')
+    logger.debug('\t'.join(['Tree {}'.format(i+1)
+                            for i in range(len(forest))]))
     for p in predicted_labels:
-        logger.info('\t'.join(p))
-    logger.info('-'*50)
-    logger.info('')
-    logger.info('Forest Predicted\tReal')
-    logger.info('-'*30)
+        logger.debug('\t'.join(p))
+    logger.debug('-'*50)
+    logger.debug('')
+    logger.debug('Forest Predicted\tReal')
+    logger.debug('-'*30)
 
     confusion_matrix = {}
     possible_labels = get_labels_filtered(unique_labels)
@@ -159,15 +221,15 @@ def test_forest(test_data, forest):
         if '{}-{}'.format(real_label, predicted_label) in confusion_matrix:
             confusion_matrix['{}-{}'.format(real_label, prediction)] += 1
 
-        logger.info('{}\t\t\t{}'.format(prediction, real_label))
+        logger.debug('{}\t\t\t{}'.format(prediction, real_label))
 
-    print()
-    logger.info('Confusion Matrix')
-    logger.info(get_pretty_confusion_matrix(confusion_matrix))
-    logger.info('')
-    logger.info('Metrics')
-    logger.info(get_evaluation_metrics(confusion_matrix))
-    return confusion_matrix
+    metrics = get_evaluation_metrics(confusion_matrix)
+    logger.debug('Confusion Matrix')
+    logger.debug(get_pretty_confusion_matrix(confusion_matrix))
+    logger.debug('')
+    logger.debug('Metrics')
+    logger.debug(json.dumps(metrics, indent=2))
+    return metrics
 
 
 @click.group()
@@ -204,17 +266,17 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
         attributes_amount = int(math.sqrt(len(attributes)))
 
     if bootstrap:
-        print('BOOTSTRAP')
-        print('Dataset')
-        print(dataset)
-        print()
+        logger.debug('BOOTSTRAP')
+        logger.debug('Dataset')
+        logger.debug(dataset)
+        logger.debug('')
         train, test = get_dataset_bootstrap(dataset)
-        print('train')
-        print(train)
-        print()
-        print('test')
-        print(test)
-        print()
+        logger.debug('train')
+        logger.debug(train)
+        logger.debug('')
+        logger.debug('test')
+        logger.debug(test)
+        logger.debug('')
 
         forest = []
         trees_attributes = []
@@ -233,7 +295,10 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
                 DotExporter(tree).to_picture(
                     '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), i + 1))
 
-        test_forest(test, forest)
+        metrics = test_forest(test, forest)
+        logger.info('Metrics')
+        logger.info(json.dumps(metrics, indent=2))
+        processing_result_metrics(metrics)
 
     else:
         folds = generate_folds(dataset, k_fold)
@@ -241,6 +306,8 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
         for fold_index, (train, test) in enumerate(folds):
             forest = []
             trees_attributes = []
+            logger.info('Processing fold {}'.format(fold_index + 1))
+            logger.info('Training...')
             for i in range(tree_amount):
                 bootstrap_train, _ = get_dataset_bootstrap(train)
 
@@ -269,7 +336,10 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
                     with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), fold_index + 1, index + 1), 'w') as tree_file:
                         tree_file.write(json_exporter.export(tree))
 
-            test_forest(test, forest)
+            logger.info('Testing ...')
+            metrics = test_forest(test, forest)
+            logger.info('Test result')
+            processing_result_metrics(metrics)
 
 
 if __name__ == "__main__":
