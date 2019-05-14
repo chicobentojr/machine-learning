@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 
 NODE_TYPE_DECISION = 'D'
-NODE_TYPE_LABEL = 'L'
+NODE_TYPE_LEAF = 'L'
 NODE_NAME_SEPARATOR = '\n'
 
 def node_attr_func(node):
@@ -108,11 +108,19 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('')
 
     if len(original_classes) == 1:
-        return AnyNode(parent, type=NODE_TYPE_LABEL, label=original_classes[0], value=parent_value,
-                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '', original_classes[0]))
+        return AnyNode(parent,
+                       type=NODE_TYPE_LEAF,
+                       label=original_classes[0],
+                       value=parent_value,
+                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '',
+                                            original_classes[0]))
     elif not attributes:
-        return AnyNode(parent, type=NODE_TYPE_LABEL, label=most_frequent_label, value=parent_value,
-                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '', most_frequent_label))
+        return AnyNode(parent,
+                       type=NODE_TYPE_LEAF,
+                       label=most_frequent_label,
+                       value=parent_value,
+                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '',
+                                            most_frequent_label))
 
     for c in original_classes:
         d_c = d[d.apply(lambda x: x[y_field] == c, axis=1)]
@@ -141,18 +149,18 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('The chosen field is "{}"'.format(chosen_field))
     logger.debug('')
 
-    # attributes.remove(chosen_field)
     attributes = [x for x in attributes if x != chosen_field]
 
     if pd.api.types.is_string_dtype(d[chosen_field]):
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
+                           label=most_frequent_label,
+                           value=parent_value,
                            name='{}{}{}?'.format(
                                parent_value + NODE_NAME_SEPARATOR if parent_value else '',
                                NODE_NAME_SEPARATOR,
                                chosen_field),
-                           field=chosen_field, value=parent_value,
-                           label=most_frequent_label)
+                           field=chosen_field)
 
         for v in d[chosen_field].unique():
             logger.debug('{} {}'.format(chosen_field, v))
@@ -192,17 +200,17 @@ def create_decision_tree(filename, separator=';'):
 
 
 def classify_instance(decision_tree, instance):
-    node = decision_tree
-    while node.type != NODE_TYPE_LABEL:
-        v = instance[node.field]
+    node = decision_tree # node = tree root
+    while node.type != NODE_TYPE_LEAF: # NODE_TYPE_LEAF = leaf node
+        v = instance[node.field] # v = instance value for node field
 
-        if isinstance(v, float) or isinstance(v, int):
-            if v <= node.children[0].value:
-                node = node.children[0]
+        if isinstance(v, float) or isinstance(v, int): # if is a numeric attribute
+            if v <= node.children[0].value: # cut value: left value
+                node = node.children[0] # search at left sub-tree
             else:
-                node = node.children[1]
+                node = node.children[1] # search at right sub-tree
             break
-        else:
+        else: # is a categoric attribute
             for child in node.children:
                 if v == child.value:
                     node = child
