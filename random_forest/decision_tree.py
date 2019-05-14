@@ -14,15 +14,19 @@ NODE_TYPE_DECISION = 'D'
 NODE_TYPE_LEAF = 'L'
 NODE_NAME_SEPARATOR = '\n'
 
+
 def node_attr_func(node):
     parts = node.name.split(NODE_NAME_SEPARATOR)
     return 'label="%s"' % (parts[-1])
-    
+
+
 def edge_attr_func(node, child):
     return 'label="%s"' % (str(child.value))
 
+
 def edge_type_func(node, child):
     return '--'
+
 
 def export_dot(tree):
     return DotExporter(tree, graph="graph",
@@ -31,7 +35,7 @@ def export_dot(tree):
                        edgetypefunc=edge_type_func)
 
 
-def info_dataset(total, class_amount):
+def get_dataset_entropy(total, class_amount):
     return - (class_amount/total) * math.log2(class_amount/total)
 
 
@@ -60,7 +64,7 @@ def get_attribute_entropy(d, attr):
                 di_c = di[di.apply(lambda x: x[y_field] == c, axis=1)]
                 di_c_amount = len(di_c)
 
-                di_info += info_dataset(len(di), di_c_amount)
+                di_info += get_dataset_entropy(len(di), di_c_amount)
 
             attr_entropy += (di_total / len(d)) * di_info
 
@@ -81,7 +85,7 @@ def get_attribute_entropy(d, attr):
                 di_c = di[di.apply(lambda x: x[y_field] == c, axis=1)]
                 di_c_amount = len(di_c)
 
-                di_info += info_dataset(len(di), di_c_amount)
+                di_info += get_dataset_entropy(len(di), di_c_amount)
 
             attr_entropy += (di_total / len(d)) * di_info
 
@@ -92,6 +96,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('DATASET')
     logger.debug(d)
     logger.debug('-'*50)
+    logger.debug('')
     logger.debug('SUMMARY')
     logger.debug(d.describe())
     logger.debug('-'*50)
@@ -99,9 +104,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     original_entropy = 0.0
     y_field = d.columns[len(d.columns) - 1]
     original_classes = d[y_field].unique()
-    # attributes = d.columns[:-1].tolist()
-    most_frequent_label = d[y_field].max()
+    most_frequent_label = d[y_field].mode()[0] if not d.empty else parent.label
 
+    logger.debug('MOST FREQUENT LABEL {}'.format(most_frequent_label))
+    logger.debug('')
     logger.debug('COLUMNS')
     logger.debug(attributes)
     logger.debug('-'*50)
@@ -114,7 +120,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                        value=parent_value,
                        name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '',
                                             original_classes[0]))
-    elif not attributes:
+    elif not attributes or d.empty:
         return AnyNode(parent,
                        type=NODE_TYPE_LEAF,
                        label=most_frequent_label,
@@ -124,7 +130,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
 
     for c in original_classes:
         d_c = d[d.apply(lambda x: x[y_field] == c, axis=1)]
-        original_entropy += info_dataset(len(d), len(d_c))
+        original_entropy += get_dataset_entropy(len(d), len(d_c))
 
     logger.debug('Original Entropy {}'.format(original_entropy))
     logger.debug('')
@@ -163,17 +169,20 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                            field=chosen_field)
 
         for v in d[chosen_field].unique():
-            logger.debug('{} {}'.format(chosen_field, v))
+            logger.debug('Chosen field {} value = {}'.format(chosen_field, v))
             new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
             generate_tree(new_d, attributes, decision, v)
 
     elif pd.api.types.is_numeric_dtype(d[chosen_field]):
         number = get_numeric_attribute_split(d, chosen_field)
+        logger.debug('Chosen field {} split value = {}'.format(
+            chosen_field, number))
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
                            name='{}{}{} <= {}?'.format(
-                               parent_value + NODE_NAME_SEPARATOR if parent_value else '',
+                               str(parent_value) +
+                               NODE_NAME_SEPARATOR if parent_value else '',
                                NODE_NAME_SEPARATOR,
                                chosen_field, number),
                            field=chosen_field, value=parent_value,
@@ -184,7 +193,8 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
         max = d[chosen_field].max()
 
         for minimum, maximum in [(min - 1, middle), (middle, max)]:
-            logger.debug('{} {} {}'.format(chosen_field, minimum, maximum))
+            logger.debug('Chosen field {} min = {} | max = {}'.format(
+                chosen_field, minimum, maximum))
             new_d = d[d.apply(lambda x: minimum <
                               x[chosen_field] <= maximum, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
@@ -200,17 +210,17 @@ def create_decision_tree(filename, separator=';'):
 
 
 def classify_instance(decision_tree, instance):
-    node = decision_tree # node = tree root
-    while node.type != NODE_TYPE_LEAF: # NODE_TYPE_LEAF = leaf node
-        v = instance[node.field] # v = instance value for node field
+    node = decision_tree  # node = tree root
+    while node.type != NODE_TYPE_LEAF:  # NODE_TYPE_LEAF = leaf node
+        v = instance[node.field]  # v = instance value for node field
 
-        if isinstance(v, float) or isinstance(v, int): # if is a numeric attribute
-            if v <= node.children[0].value: # cut value: left value
-                node = node.children[0] # search at left sub-tree
+        if isinstance(v, float) or isinstance(v, int):  # if is a numeric attribute
+            if v <= node.children[0].value:  # cut value: left value
+                node = node.children[0]  # search at left sub-tree
             else:
-                node = node.children[1] # search at right sub-tree
+                node = node.children[1]  # search at right sub-tree
             break
-        else: # is a categoric attribute
+        else:  # is a categoric attribute
             for child in node.children:
                 if v == child.value:
                     node = child
@@ -229,9 +239,8 @@ def main():
 @main.command(name='create')
 @click_log.simple_verbosity_option(logger)
 @click.argument('filename')
-@click.option('--separator', '-s', default=';', help='your custom csv separator (e.g.: , or ;)')
+@click.option('--separator', '-s', default=',', help='your custom csv separator (e.g.: ; or :)')
 @click.option('--image-output', '-img', help='a filename to storage the result decision tree.\nNeeds graphviz installed')
-
 def create(filename, separator, image_output):
     """Create a decision tree based on a train dataset"""
     decision_tree = create_decision_tree(filename, separator=separator)
@@ -243,19 +252,6 @@ def create(filename, separator, image_output):
         if not image_output.endswith('.png'):
             image_output += '.png'
         export_dot(decision_tree).to_picture(image_output)
-    
-    test_instances = pd.DataFrame({
-        'Tempo': ['Ensolarado', 'Chuvoso'],
-        'Temperatura': ['Quente', 'Fria'],
-        'Umidade': ['Normal', 'Alta'],
-        'Ventoso': ['Verdadeiro', 'Verdadeiro'],
-        'Jogar': ['?', '?']
-    })
-
-    for idx, instance in test_instances.iterrows():
-        logger.debug('Instance {}\n{}'.format(instance.index, instance.values))
-        logger.debug('Result {}'.format(
-            classify_instance(decision_tree, instance)))
 
 
 if __name__ == "__main__":

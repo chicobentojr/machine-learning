@@ -126,12 +126,16 @@ def test_forest(test_data, forest):
     label_field = test_data.columns[-1]
     real_labels = test_data[label_field]
 
+    unique_labels = real_labels.unique().tolist()
+
     predicted_labels = []
     for (index, (_, row)) in enumerate(test_data.iterrows()):
         predicted_labels.append([])
         for tree in forest:
             predicted_label = dt.classify_instance(tree, row)
             predicted_labels[index].append(predicted_label)
+            if not predicted_label in unique_labels:
+                unique_labels.append(predicted_label)
 
     logger.info('PREDICTIONS')
     logger.info('')
@@ -144,8 +148,7 @@ def test_forest(test_data, forest):
     logger.info('-'*30)
 
     confusion_matrix = {}
-    possible_labels = get_labels_filtered(real_labels.unique().tolist()
-                                          )
+    possible_labels = get_labels_filtered(unique_labels)
     for x_label in possible_labels:
         for y_label in possible_labels:
             confusion_matrix['{}-{}'.format(x_label, y_label)] = 0
@@ -175,7 +178,7 @@ def main():
 @main.command(name='create')
 @click_log.simple_verbosity_option(logger)
 @click.argument('filename')
-@click.option('--separator', '-s', default=';', help='your custom csv separator (e.g.: , or ;)')
+@click.option('--separator', '-s', default=',', help='your custom csv separator (e.g.: ; or :)')
 @click.option('--tree-amount', '-t', default=1, help='your tree amount per forest')
 @click.option('--attributes-amount', '-a', default=0, help='your attributes number to generate each tree')
 @click.option('--k-fold', '-k', default=5, help='your number of folds to cross validation')
@@ -225,6 +228,10 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
             tree = dt.generate_tree(train, attrs, logger=logger)
             forest.append(tree)
             trees_attributes.append(attrs)
+
+            if img_folder:
+                DotExporter(tree).to_picture(
+                    '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), i + 1))
 
         test_forest(test, forest)
 
