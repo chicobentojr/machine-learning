@@ -23,6 +23,8 @@ PRECISION_MACRO = 'precision_macro'
 PRECISION_MICRO = 'precision_micro'
 RECALL_MACRO = 'recall_macro'
 RECALL_MICRO = 'recall_micro'
+TREE_AMOUNT = 'tree_amount'
+ATTRIBUTE_AMOUNT = 'attribute amount'
 
 
 def get_labels_filtered(labels):
@@ -54,9 +56,9 @@ def get_pretty_confusion_matrix(matrix_dict, sep='-'):
             m[index].append(
                 matrix_dict['{}{}{}'.format(x_label, sep, y_label)])
         r += '{}\n'.format(line)
-    print(r)
-    for n in m:
-        print(n)
+    # print(r)
+    # for n in m:
+    #     print(n)
     return r
 
 
@@ -158,6 +160,8 @@ def forest_decision(trees_predictions):
 
 
 def get_f_measure(precision, recall, beta=1.0):
+    if precision == 0 and recall == 0:
+        return 0
     return (1 + math.pow(beta, 2)) * ((precision * recall)/((math.pow(beta, 2) * precision) + recall))
 
 
@@ -224,11 +228,11 @@ def test_forest(test_data, forest):
         logger.debug('{}\t\t\t{}'.format(prediction, real_label))
 
     metrics = get_evaluation_metrics(confusion_matrix)
-    logger.debug('Confusion Matrix')
-    logger.debug(get_pretty_confusion_matrix(confusion_matrix))
-    logger.debug('')
-    logger.debug('Metrics')
-    logger.debug(json.dumps(metrics, indent=2))
+    # logger.debug('Confusion Matrix')
+    # logger.debug(get_pretty_confusion_matrix(confusion_matrix))
+    # logger.debug('')
+    # logger.debug('Metrics')
+    # logger.debug(json.dumps(metrics, indent=2))
     return metrics
 
 
@@ -280,7 +284,7 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
 
         forest = []
         trees_attributes = []
-        for i in range(tree_amount):
+        for t_index in range(tree_amount):
             if attributes_amount != -1:
                 random.shuffle(attributes)
                 attrs = attributes[:attributes_amount]
@@ -293,7 +297,7 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
 
             if img_folder:
                 DotExporter(tree).to_picture(
-                    '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), i + 1))
+                    '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), t_index + 1))
 
         metrics = test_forest(test, forest)
         logger.info('Metrics')
@@ -302,13 +306,14 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
 
     else:
         folds = generate_folds(dataset, k_fold)
-
-        for fold_index, (train, test) in enumerate(folds):
+        tr = []
+        for f_index, (train, test) in enumerate(folds):
             forest = []
             trees_attributes = []
-            logger.info('Processing fold {}'.format(fold_index + 1))
-            logger.info('Training...')
-            for i in range(tree_amount):
+            logger.info('Processing fold {}'.format(f_index + 1))
+            logger.info('Training {} trees with {} instances'.format(
+                tree_amount, len(train)))
+            for t_index in range(tree_amount):
                 bootstrap_train, _ = get_dataset_bootstrap(train)
 
                 if attributes_amount != -1:
@@ -317,13 +322,18 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
                 else:
                     attrs = attributes
 
+                logger.info('Generating tree {} with {} attributes {}'.format(
+                    t_index + 1, len(attrs), attrs))
                 tree = dt.generate_tree(bootstrap_train, attrs, logger=logger)
                 forest.append(tree)
                 trees_attributes.append(attrs)
 
                 if img_folder:
                     DotExporter(tree).to_picture(
-                        '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), fold_index + 1, i + 1))
+                        '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
+                if json_folder:
+                    with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
+                        tree_file.write(json_exporter.export(tree))
 
             for index, tree in enumerate(forest):
                 logger.debug(f'Tree {index+1}')
@@ -332,14 +342,41 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
                 logger.debug('-'*50)
                 logger.debug(RenderTree(tree))
                 logger.debug('-'*50)
-                if json_folder:
-                    with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), fold_index + 1, index + 1), 'w') as tree_file:
-                        tree_file.write(json_exporter.export(tree))
 
-            logger.info('Testing ...')
+            logger.info('Testing forest with {} instances'.format(len(test)))
             metrics = test_forest(test, forest)
-            logger.info('Test result')
-            processing_result_metrics(metrics)
+            # logger.info('Test result')
+            logger.info('Testing finished with {} accuracy'.format(
+                metrics[ACCURACY]))
+            logger.info('')
+            tr.append(metrics)
+            # processing_result_metrics(metrics)
+
+        result_dict = {
+            ACCURACY: [],
+            ERROR_RATE: [],
+            PRECISION_MACRO: [],
+            PRECISION_MICRO: [],
+            RECALL_MACRO: [],
+            RECALL_MICRO: [],
+            TREE_AMOUNT: [],
+            ATTRIBUTE_AMOUNT: []
+        }
+        for index, metric in enumerate(tr):
+            print('Result fold {}'.format(index + 1))
+            print(json.dumps(metric, indent=2))
+            result_dict[ACCURACY].append(metric[ACCURACY])
+            result_dict[ERROR_RATE].append(metric[ERROR_RATE])
+            result_dict[PRECISION_MACRO].append(metric[PRECISION_MACRO])
+            result_dict[PRECISION_MICRO].append(metric[PRECISION_MICRO])
+            result_dict[RECALL_MACRO].append(metric[RECALL_MACRO])
+            result_dict[RECALL_MICRO].append(metric[RECALL_MICRO])
+            result_dict[TREE_AMOUNT].append(tree_amount)
+            result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
+            # processing_result_metrics(metric)
+        dt_r = pd.DataFrame(result_dict)
+        print(dt_r)
+        print(dt_r.describe())
 
 
 if __name__ == "__main__":
