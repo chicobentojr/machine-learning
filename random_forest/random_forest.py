@@ -6,11 +6,18 @@ import pandas as pd
 import click
 import click_log
 import decision_tree as dt
+from functools import reduce
 from anytree import RenderTree
 from anytree.exporter import JsonExporter, DotExporter
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
+
+ACCURACY = 'accuracy'
+ERROR_RATE = 'error_rate'
+RECALL = 'recall'
+PRECISION = 'precision'
+LABELS = 'labels'
 
 
 def get_labels_filtered(labels):
@@ -20,23 +27,52 @@ def get_labels_filtered(labels):
     return labels
 
 
-def get_pretty_confusion_matrix(matrix, sep='-'):
+def get_labels_from_confusion_matrix(matrix, sep='-'):
     labels = set()
     for key in matrix.keys():
         x, y = key.split(sep)
         labels.add(x)
         labels.add(y)
-    labels = get_labels_filtered(list(labels))
+    return get_labels_filtered(list(labels))
+
+
+def get_pretty_confusion_matrix(matrix, sep='-'):
+    labels = get_labels_from_confusion_matrix(matrix, sep)
 
     r = '\t{}\n'.format('\t'.join(labels))
     for x_label in labels:
         line = '{}\t'.format(x_label)
         for y_label in labels:
             line += '{}\t'.format(
-                matrix['{}-{}'.format(x_label, y_label)])
+                matrix['{}{}{}'.format(x_label, sep, y_label)])
         r += '{}\n'.format(line)
 
     return r
+
+
+def get_evaluation_metrics(matrix, sep='-'):
+    labels = get_labels_from_confusion_matrix(matrix, sep)
+    n = reduce((lambda x, y: x + y), matrix.values())
+    print(n)
+    metrics = {
+        ACCURACY: 0,
+        LABELS: {}
+    }
+    for x in labels:
+        metrics[ACCURACY] += matrix['{}{}{}'.format(x, sep, x)]
+        metrics[LABELS][x] = {'vp': 0, 'fp': 0, 'fn': 0}
+
+        for y in labels:
+            if x == y:
+                metrics[LABELS][x]['vp'] = matrix['{}{}{}'.format(x, sep, y)]
+            else:
+                metrics[LABELS][x]['fp'] = matrix['{}{}{}'.format(y, sep, x)]
+                metrics[LABELS][x]['fn'] = matrix['{}{}{}'.format(x, sep, y)]
+
+    metrics[ACCURACY] = metrics[ACCURACY] / n
+    metrics[ERROR_RATE] = 1 - metrics[ACCURACY]
+
+    return metrics
 
 
 def get_dataset_bootstrap(d):
@@ -107,11 +143,6 @@ def test_forest(test_data, forest):
     logger.info('Forest Predicted\tReal')
     logger.info('-'*30)
 
-    # correct_amount = 0
-    # true_positive = 0
-    # true_negative = 0
-    # false_positive = 0
-    # false_negative = 0
     confusion_matrix = {}
     possible_labels = get_labels_filtered(real_labels.unique().tolist()
                                           )
@@ -122,7 +153,7 @@ def test_forest(test_data, forest):
     for index, predictions in enumerate(predicted_labels):
         prediction = forest_decision(predictions)
         real_label = real_labels.values[index]
-        if '{}-{}'.format(real_label, predicted_label):
+        if '{}-{}'.format(real_label, predicted_label) in confusion_matrix:
             confusion_matrix['{}-{}'.format(real_label, prediction)] += 1
 
         logger.info('{}\t\t\t{}'.format(prediction, real_label))
@@ -130,6 +161,9 @@ def test_forest(test_data, forest):
     print()
     logger.info('Confusion Matrix')
     logger.info(get_pretty_confusion_matrix(confusion_matrix))
+    logger.info('')
+    logger.info('Metrics')
+    logger.info(get_evaluation_metrics(confusion_matrix))
     return confusion_matrix
 
 
@@ -164,7 +198,7 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
             os.makedirs(img_folder)
 
     if attributes_amount == 0:
-        attributes_amount = int(math.sqrt(attributes_amount))
+        attributes_amount = int(math.sqrt(len(attributes)))
 
     if bootstrap:
         print('BOOTSTRAP')
