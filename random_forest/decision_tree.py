@@ -17,7 +17,8 @@ NODE_NAME_SEPARATOR = '\n'
 
 def node_attr_func(node):
     parts = node.name.split(NODE_NAME_SEPARATOR)
-    return 'label="%s"' % (parts[-1])
+    label = parts[-1].replace("= ", "")
+    return 'label="%s"' % (label)
 
 
 def edge_attr_func(node, child):
@@ -178,11 +179,11 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
         number = get_numeric_attribute_split(d, chosen_field)
         logger.debug('Chosen field {} split value = {}'.format(
             chosen_field, number))
+        
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
                            name='{}{}{} <= {}?'.format(
-                               str(parent_value) +
-                               NODE_NAME_SEPARATOR if parent_value else '',
+                               str(parent_value) + NODE_NAME_SEPARATOR if parent_value else '',
                                NODE_NAME_SEPARATOR,
                                chosen_field, number),
                            field=chosen_field, value=parent_value,
@@ -251,7 +252,10 @@ def create(filename, separator, image_output):
     if image_output:
         if not image_output.endswith('.png'):
             image_output += '.png'
-        export_dot(decision_tree).to_picture(image_output)
+        dot = export_dot(decision_tree)
+        dot.to_picture(image_output)
+
+        
 
 
 if __name__ == "__main__":
