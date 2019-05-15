@@ -3,6 +3,7 @@ import math
 import logging
 import click
 import click_log
+import random
 from pandas.api.types import is_string_dtype, is_numeric_dtype
 from anytree import Node, RenderTree, AnyNode
 from anytree.dotexport import DotExporter
@@ -93,7 +94,7 @@ def get_attribute_entropy(d, attr):
     return attr_entropy
 
 
-def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, logger=logger, i=0):
+def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, logger=logger, i=0, m=0):
     logger.debug('DATASET')
     logger.debug(d)
     logger.debug('-'*50)
@@ -114,6 +115,15 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('-'*50)
     logger.debug('')
 
+    if m != 0:
+        attrs = random.sample(attributes, m)
+        logger.debug('SELECTED ATTRIBUTES {}'.format(m))
+        logger.debug(attrs)
+        logger.debug('-'*50)
+        logger.debug('')
+    else:
+        attrs = attributes
+
     if len(original_classes) == 1:
         return AnyNode(parent,
                        type=NODE_TYPE_LEAF,
@@ -121,7 +131,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                        value=parent_value,
                        name='{}{}= {}'.format(i, parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else NODE_NAME_SEPARATOR,
                                               original_classes[0]))
-    elif not attributes or d.empty:
+    elif not attrs or d.empty:
         return AnyNode(parent,
                        type=NODE_TYPE_LEAF,
                        label=most_frequent_label,
@@ -136,10 +146,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('Original Entropy {}'.format(original_entropy))
     logger.debug('')
 
-    chosen_field = attributes[0]
+    chosen_field = attrs[0]
     higher_gain = 0.0
 
-    for attr in attributes:
+    for attr in attrs:
         logger.debug(attr)
         attr_entropy = get_attribute_entropy(d, attr)
 
@@ -174,7 +184,8 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
             logger.debug('Chosen field {} value = {}'.format(chosen_field, v))
             new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
             # new_d = new_d.drop(chosen_field, 1)
-            generate_tree(new_d, attributes, decision, v, i=i+1)
+            generate_tree(new_d, attributes, decision,
+                          v, i=i+1, m=m, logger=logger)
             i = i + 1
 
     elif pd.api.types.is_numeric_dtype(d[chosen_field]):
@@ -203,7 +214,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                               x[chosen_field] <= maximum, axis=1)]
             # new_d = new_d.drop(chosen_field, 1)
             generate_tree(new_d, attributes, decision,
-                          middle, logger=logger, i=i+1)
+                          middle, logger=logger, i=i+1, m=m)
             i = i + 1
 
     return decision

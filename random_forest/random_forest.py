@@ -9,7 +9,7 @@ import json
 import decision_tree as dt
 from functools import reduce
 from anytree import RenderTree
-from anytree.exporter import JsonExporter, DotExporter
+from anytree.exporter import JsonExporter
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -271,21 +271,21 @@ def cross_validation_with_n_tree(
                 for t_index in range(tree_amount):
                     bootstrap_train, _ = get_dataset_bootstrap(train)
 
-                    if attributes_amount != -1:
-                        random.shuffle(attributes)
-                        attrs = attributes[:attributes_amount]
-                    else:
-                        attrs = attributes
+                    # if attributes_amount != -1:
+                    #     random.shuffle(attributes)
+                    #     attrs = attributes[:attributes_amount]
+                    # else:
+                    #     attrs = attributes
 
-                    logger.info('Generating tree {} with {} attributes {}'.format(
-                        t_index + 1, len(attrs), attrs))
+                    logger.info('Generating tree {} with {} attributes'.format(
+                        t_index + 1, attributes_amount))
                     tree = dt.generate_tree(
-                        bootstrap_train, attrs, logger=logger)
+                        bootstrap_train, attributes, logger=logger, m=attributes_amount)
                     forest.append(tree)
-                    trees_attributes.append(attrs)
+                    trees_attributes.append(attributes)
 
                     if img_folder:
-                        DotExporter(tree).to_picture(
+                        dt.export_dot(tree).to_picture(
                             '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
                     if json_folder:
                         with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
@@ -354,8 +354,6 @@ def create(filename, separator, tree_amount, attributes_amount,
            last_attributes_amount, test_result_output, bootstrap
            ):
     """Create a random forest based on a CSV dataset"""
-    random.seed(2)
-
     dataset = pd.read_csv(filename, sep=separator)
     y_field = dataset.columns[-1]
     dataset[y_field] = dataset[y_field].astype(str)
@@ -382,18 +380,13 @@ def create(filename, separator, tree_amount, attributes_amount,
         forest = []
         trees_attributes = []
         for t_index in range(tree_amount):
-            if attributes_amount != -1:
-                random.shuffle(attributes)
-                attrs = attributes[:attributes_amount]
-            else:
-                attrs = attributes
-
-            tree = dt.generate_tree(train, attrs, logger=logger)
+            tree = dt.generate_tree(
+                train, attributes, logger=logger, m=attributes_amount)
             forest.append(tree)
-            trees_attributes.append(attrs)
+            trees_attributes.append(attributes)
 
             if img_folder:
-                DotExporter(tree).to_picture(
+                dt.export_dot(tree).to_picture(
                     '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), t_index + 1))
 
         metrics = test_forest(test, forest)
@@ -413,20 +406,21 @@ def create(filename, separator, tree_amount, attributes_amount,
             for t_index in range(tree_amount):
                 bootstrap_train, _ = get_dataset_bootstrap(train)
 
-                if attributes_amount != -1:
-                    random.shuffle(attributes)
-                    attrs = attributes[:attributes_amount]
-                else:
-                    attrs = attributes
+                # if attributes_amount != -1:
+                #     random.shuffle(attributes)
+                #     attrs = attributes[:attributes_amount]
+                # else:
+                #     attrs = attributes
 
-                logger.info('Generating tree {} with {} attributes {}'.format(
-                    t_index + 1, len(attrs), attrs))
-                tree = dt.generate_tree(bootstrap_train, attrs, logger=logger)
+                logger.info('Generating tree {} with {}'.format(
+                    t_index + 1, attributes_amount))
+                tree = dt.generate_tree(
+                    bootstrap_train, attributes, logger=logger, m=attributes_amount)
                 forest.append(tree)
-                trees_attributes.append(attrs)
+                trees_attributes.append(attributes)
 
                 if img_folder:
-                    DotExporter(tree).to_picture(
+                    dt.export_dot(tree).to_picture(
                         '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
                 if json_folder:
                     with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
