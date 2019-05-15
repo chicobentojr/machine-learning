@@ -93,7 +93,7 @@ def get_attribute_entropy(d, attr):
     return attr_entropy
 
 
-def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, logger=logger):
+def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, logger=logger, i=0):
     logger.debug('DATASET')
     logger.debug(d)
     logger.debug('-'*50)
@@ -119,15 +119,15 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                        type=NODE_TYPE_LEAF,
                        label=original_classes[0],
                        value=parent_value,
-                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '',
-                                            original_classes[0]))
+                       name='{}{}= {}'.format(i, parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else NODE_NAME_SEPARATOR,
+                                              original_classes[0]))
     elif not attributes or d.empty:
         return AnyNode(parent,
                        type=NODE_TYPE_LEAF,
                        label=most_frequent_label,
                        value=parent_value,
-                       name='{}= {}'.format(parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else '',
-                                            most_frequent_label))
+                       name='{}{}= {}'.format(i, parent_value + NODE_NAME_SEPARATOR if isinstance(parent_value, str) else NODE_NAME_SEPARATOR,
+                                              most_frequent_label))
 
     for c in original_classes:
         d_c = d[d.apply(lambda x: x[y_field] == c, axis=1)]
@@ -156,36 +156,39 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
     logger.debug('The chosen field is "{}"'.format(chosen_field))
     logger.debug('')
 
-    attributes = [x for x in attributes if x != chosen_field]
+    # attributes = [x for x in attributes if x != chosen_field]
 
     if pd.api.types.is_string_dtype(d[chosen_field]):
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
                            label=most_frequent_label,
                            value=parent_value,
-                           name='{}{}{}?'.format(
-                               parent_value + NODE_NAME_SEPARATOR if parent_value else '',
-                               NODE_NAME_SEPARATOR,
-                               chosen_field),
+                           name='{}{}{}{}?'.format(i,
+                                                   str(parent_value) +
+                                                   NODE_NAME_SEPARATOR if parent_value else NODE_NAME_SEPARATOR,
+                                                   NODE_NAME_SEPARATOR,
+                                                   chosen_field),
                            field=chosen_field)
 
         for v in d[chosen_field].unique():
             logger.debug('Chosen field {} value = {}'.format(chosen_field, v))
             new_d = d[d.apply(lambda x: x[chosen_field] == v, axis=1)]
-            new_d = new_d.drop(chosen_field, 1)
-            generate_tree(new_d, attributes, decision, v)
+            # new_d = new_d.drop(chosen_field, 1)
+            generate_tree(new_d, attributes, decision, v, i=i+1)
+            i = i + 1
 
     elif pd.api.types.is_numeric_dtype(d[chosen_field]):
         number = get_numeric_attribute_split(d, chosen_field)
         logger.debug('Chosen field {} split value = {}'.format(
             chosen_field, number))
-        
+
         decision = AnyNode(parent,
                            type=NODE_TYPE_DECISION,
-                           name='{}{}{} <= {}?'.format(
-                               str(parent_value) + NODE_NAME_SEPARATOR if parent_value else '',
-                               NODE_NAME_SEPARATOR,
-                               chosen_field, number),
+                           name='{}{}{}{} <= {}?'.format(i,
+                                                         str(parent_value) +
+                                                         NODE_NAME_SEPARATOR if parent_value else NODE_NAME_SEPARATOR,
+                                                         NODE_NAME_SEPARATOR,
+                                                         chosen_field, number),
                            field=chosen_field, value=parent_value,
                            label=most_frequent_label)
 
@@ -198,8 +201,10 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
                 chosen_field, minimum, maximum))
             new_d = d[d.apply(lambda x: minimum <
                               x[chosen_field] <= maximum, axis=1)]
-            new_d = new_d.drop(chosen_field, 1)
-            generate_tree(new_d, attributes, decision, middle, logger=logger)
+            # new_d = new_d.drop(chosen_field, 1)
+            generate_tree(new_d, attributes, decision,
+                          middle, logger=logger, i=i+1)
+            i = i + 1
 
     return decision
 
@@ -253,8 +258,6 @@ def create(filename, separator, image_output):
             image_output += '.png'
         dot = export_dot(decision_tree)
         dot.to_picture(image_output)
-
-        
 
 
 if __name__ == "__main__":
