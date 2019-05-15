@@ -236,6 +236,93 @@ def test_forest(test_data, forest):
     return metrics
 
 
+def cross_validation_with_n_tree(
+        dataset, k_fold, init_tree, last_tree,
+        init_attr, last_attr, img_folder, json_folder, output_filename):
+
+    attributes = dataset.columns[:-1].tolist()
+    folds = generate_folds(dataset, k_fold)
+    tr = []
+    json_exporter = JsonExporter(indent=2)
+    tests_result_dict = {
+        TREE_AMOUNT: [],
+        ATTRIBUTE_AMOUNT: [],
+        ACCURACY: [],
+        ERROR_RATE: [],
+        PRECISION_MACRO: [],
+        PRECISION_MICRO: [],
+        RECALL_MACRO: [],
+        RECALL_MICRO: [],
+    }
+
+    for tree_amount in range(init_tree, last_tree + 1):
+        for attributes_amount in range(init_attr, last_attr + 1):
+            for f_index, (train, test) in enumerate(folds):
+                forest = []
+                trees_attributes = []
+                logger.info('Processing fold {}'.format(f_index + 1))
+                logger.info('Training {} trees with {} instances'.format(
+                    tree_amount, len(train)))
+                for t_index in range(tree_amount):
+                    bootstrap_train, _ = get_dataset_bootstrap(train)
+
+                    if attributes_amount != -1:
+                        random.shuffle(attributes)
+                        attrs = attributes[:attributes_amount]
+                    else:
+                        attrs = attributes
+
+                    logger.info('Generating tree {} with {} attributes {}'.format(
+                        t_index + 1, len(attrs), attrs))
+                    tree = dt.generate_tree(
+                        bootstrap_train, attrs, logger=logger)
+                    forest.append(tree)
+                    trees_attributes.append(attrs)
+
+                    if img_folder:
+                        DotExporter(tree).to_picture(
+                            '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
+                    if json_folder:
+                        with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
+                            tree_file.write(json_exporter.export(tree))
+
+                for index, tree in enumerate(forest):
+                    logger.debug(f'Tree {index+1}')
+                    logger.debug('Attributes')
+                    logger.debug(trees_attributes[index])
+                    logger.debug('-'*50)
+                    logger.debug(RenderTree(tree))
+                    logger.debug('-'*50)
+
+                logger.info(
+                    'Testing forest with {} instances'.format(len(test)))
+                metrics = test_forest(test, forest)
+                logger.info('Testing finished with {} accuracy'.format(
+                    metrics[ACCURACY]))
+                logger.info('')
+                tr.append(metrics)
+
+            for index, metric in enumerate(tr):
+                print('Result fold {}'.format(index + 1))
+                print(json.dumps(metric, indent=2))
+                tests_result_dict[TREE_AMOUNT].append(tree_amount)
+                tests_result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
+                tests_result_dict[ACCURACY].append(metric[ACCURACY])
+                tests_result_dict[ERROR_RATE].append(metric[ERROR_RATE])
+                tests_result_dict[PRECISION_MACRO].append(
+                    metric[PRECISION_MACRO])
+                tests_result_dict[PRECISION_MICRO].append(
+                    metric[PRECISION_MICRO])
+                tests_result_dict[RECALL_MACRO].append(metric[RECALL_MACRO])
+                tests_result_dict[RECALL_MICRO].append(metric[RECALL_MICRO])
+    result_frame = pd.DataFrame(tests_result_dict)
+    print(result_frame)
+    print(result_frame.describe())
+
+    if output_filename:
+        result_frame.to_csv(output_filename)
+
+
 @click.group()
 def main():
     pass
@@ -244,14 +331,23 @@ def main():
 @main.command(name='create')
 @click_log.simple_verbosity_option(logger)
 @click.argument('filename')
-@click.option('--separator', '-s', default=',', help='your custom csv separator (e.g.: ; or :)')
+@click.option('--separator', '-s', default=',', help='your custom CSV separator (e.g.: ; or :)')
 @click.option('--tree-amount', '-t', default=1, help='your tree amount per forest')
 @click.option('--attributes-amount', '-a', default=0, help='your attributes number to generate each tree')
 @click.option('--k-fold', '-k', default=5, help='your number of folds to cross validation')
 @click.option('--json-folder', '-json', default='', help='your folder to save result trees in JSON format')
 @click.option('--img-folder', '-img', default='', help='your folder to save result trees in PNG format')
+@click.option('--initial-tree-amount', '-it', default=0, help='your first tree amount to execute multiple tests')
+@click.option('--last-tree-amount', '-lt', default=0, help='your last tree amount to execute multiple tests')
+@click.option('--initial-attributes-amount', '-ia', default=0, help='your first attribute amount to execute multiple tests')
+@click.option('--last-attributes-amount', '-la', default=0, help='your last attribute amount to execute multiple tests')
+@click.option('--test-result-output', '-o', default='', help='your CSV filename to export the tests results')
 @click.option('--bootstrap', is_flag=True)
-def create(filename, separator, tree_amount, attributes_amount, k_fold, json_folder, img_folder, bootstrap):
+def create(filename, separator, tree_amount, attributes_amount,
+           k_fold, json_folder, img_folder, initial_tree_amount,
+           last_tree_amount, initial_attributes_amount,
+           last_attributes_amount, test_result_output, bootstrap
+           ):
     """Create a random forest based on a CSV dataset"""
 
     dataset = pd.read_csv(filename, sep=separator)
@@ -269,7 +365,11 @@ def create(filename, separator, tree_amount, attributes_amount, k_fold, json_fol
     if attributes_amount == 0:
         attributes_amount = int(math.sqrt(len(attributes)))
 
-    if bootstrap:
+    if initial_tree_amount != 0 and last_tree_amount != 0:
+        cross_validation_with_n_tree(dataset, k_fold, initial_tree_amount, last_tree_amount,
+                                     initial_attributes_amount, last_attributes_amount,
+                                     img_folder, json_folder, test_result_output)
+    elif bootstrap:
         logger.debug('BOOTSTRAP')
         logger.debug('Dataset')
         logger.debug(dataset)
