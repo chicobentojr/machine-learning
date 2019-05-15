@@ -25,6 +25,10 @@ RECALL_MACRO = 'recall_macro'
 RECALL_MICRO = 'recall_micro'
 TREE_AMOUNT = 'tree_amount'
 ATTRIBUTE_AMOUNT = 'attribute amount'
+VP = 'vp'
+FP = 'fp'
+FN = 'fn'
+F_MEASURE = 'f_measure'
 
 
 def get_labels_filtered(labels):
@@ -80,26 +84,30 @@ def get_evaluation_metrics(matrix, labels):
 
     for x_i in range(len(labels)):
         metrics[ACCURACY] += matrix[x_i][x_i]
-        metrics[LABELS][labels[x_i]] = {'vp': 0, 'fp': 0, 'fn': 0}
+        metrics[LABELS][labels[x_i]] = {VP: 0, FP: 0, FN: 0}
         for y_i in range(len(labels)):
             n += matrix[x_i][y_i]
             if x_i == y_i:
-                metrics[LABELS][labels[x_i]]['vp'] = matrix[x_i][y_i]
+                metrics[LABELS][labels[x_i]][VP] = matrix[x_i][y_i]
             else:
-                metrics[LABELS][labels[x_i]]['fn'] += matrix[x_i][y_i]
-                metrics[LABELS][labels[x_i]]['fp'] += matrix[y_i][x_i]
+                metrics[LABELS][labels[x_i]][FN] += matrix[x_i][y_i]
+                metrics[LABELS][labels[x_i]][FP] += matrix[y_i][x_i]
 
     for x in labels:
-        vp = metrics[LABELS][x]['vp']
-        fn = metrics[LABELS][x]['fn']
-        fp = metrics[LABELS][x]['fp']
+        vp = metrics[LABELS][x][VP]
+        fn = metrics[LABELS][x][FN]
+        fp = metrics[LABELS][x][FP]
 
         total_vp += vp
         total_fp += fp
         total_fn += fn
 
-        metrics[LABELS][x][PRECISION] = vp / (vp + fp) if vp > 0 else 0
-        metrics[LABELS][x][RECALL] = vp / (vp + fn) if vp > 0 else 0
+        precision = vp / (vp + fp) if vp > 0 else 0
+        recall = vp / (vp + fn) if vp > 0 else 0
+
+        metrics[LABELS][x][PRECISION] = precision
+        metrics[LABELS][x][RECALL] = recall
+        metrics[LABELS][x][F_MEASURE] = get_f_measure(precision, recall)
 
         metrics[PRECISION_MACRO] += metrics[LABELS][x][PRECISION]
         metrics[RECALL_MACRO] += metrics[LABELS][x][RECALL]
@@ -167,7 +175,7 @@ def get_f_measure(precision, recall, beta=1.0):
     return (1 + math.pow(beta, 2)) * ((precision * recall)/((math.pow(beta, 2) * precision) + recall))
 
 
-def processing_result_metrics(metrics):
+def describe_metrics(metrics):
     accuracy = metrics[ACCURACY]
     print()
     print('Accuracy {}'.format(accuracy))
@@ -176,9 +184,9 @@ def processing_result_metrics(metrics):
     for label in metrics[LABELS].keys():
         print('Processing {}'.format(label))
 
-        vp = metrics[LABELS][label]['vp']
-        fn = metrics[LABELS][label]['fn']
-        fp = metrics[LABELS][label]['fp']
+        vp = metrics[LABELS][label][VP]
+        fn = metrics[LABELS][label][FN]
+        fp = metrics[LABELS][label][FP]
 
         precision = vp / (vp + fp) if vp > 0 else 0
         recall = vp / (vp + fn) if vp > 0 else 0
@@ -392,7 +400,7 @@ def create(filename, separator, tree_amount, attributes_amount,
         metrics = test_forest(test, forest)
         logger.info('Metrics')
         logger.info(json.dumps(metrics, indent=2))
-        processing_result_metrics(metrics)
+        describe_metrics(metrics)
 
     else:
         folds = generate_folds(dataset, k_fold)
@@ -453,6 +461,18 @@ def create(filename, separator, tree_amount, attributes_amount,
             TREE_AMOUNT: [],
             ATTRIBUTE_AMOUNT: []
         }
+
+        possible_labels = dataset[y_field].unique().tolist()
+
+        for label in possible_labels:
+            label_attr = '{}_{}'.format(LABELS, label)
+            result_dict['{}_{}'.format(label_attr, VP)] = []
+            result_dict['{}_{}'.format(label_attr, FP)] = []
+            result_dict['{}_{}'.format(label_attr, FN)] = []
+            result_dict['{}_{}'.format(label_attr, PRECISION)] = []
+            result_dict['{}_{}'.format(label_attr, RECALL)] = []
+            result_dict['{}_{}'.format(label_attr, F_MEASURE)] = []
+
         for index, metric in enumerate(tr):
             print('Result fold {}'.format(index + 1))
             print(json.dumps(metric, indent=2))
@@ -464,10 +484,30 @@ def create(filename, separator, tree_amount, attributes_amount,
             result_dict[RECALL_MICRO].append(metric[RECALL_MICRO])
             result_dict[TREE_AMOUNT].append(tree_amount)
             result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
-            # processing_result_metrics(metric)
+
+            for label in metric[LABELS].keys():
+                label_attr = '{}_{}'.format(LABELS, label)
+
+                result_dict['{}_{}'.format(label_attr, VP)].append(
+                    metric[LABELS][label][VP])
+                result_dict['{}_{}'.format(label_attr, FP)].append(
+                    metric[LABELS][label][FP])
+                result_dict['{}_{}'.format(label_attr, FN)].append(
+                    metric[LABELS][label][FN])
+                result_dict['{}_{}'.format(label_attr, PRECISION)].append(
+                    metric[LABELS][label][PRECISION])
+                result_dict['{}_{}'.format(label_attr, RECALL)].append(
+                    metric[LABELS][label][RECALL])
+                result_dict['{}_{}'.format(label_attr, F_MEASURE)].append(
+                    metric[LABELS][label][F_MEASURE])
+
+        print(result_dict)
         dt_r = pd.DataFrame(result_dict)
         print(dt_r)
         print(dt_r.describe())
+
+        if test_result_output:
+            dt_r.to_csv(test_result_output)
 
 
 if __name__ == "__main__":
