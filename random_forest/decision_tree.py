@@ -45,7 +45,7 @@ def get_attribute_split_node():
 
 
 def get_numeric_attribute_split(d, attr):
-    return d[attr].mean()
+    return round(d[attr].mean(), 3)
 
 
 def get_attribute_entropy(d, attr):
@@ -199,7 +199,7 @@ def generate_tree(d, attributes, parent=None, parent_value=None, verbose=False, 
             new_d = d[d.apply(lambda x: minimum <
                               x[chosen_field] <= maximum, axis=1)]
             new_d = new_d.drop(chosen_field, 1)
-            generate_tree(new_d, attributes, decision, middle)
+            generate_tree(new_d, attributes, decision, middle, logger=logger)
 
     return decision
 
@@ -220,7 +220,6 @@ def classify_instance(decision_tree, instance):
                 node = node.children[0]  # search at left sub-tree
             else:
                 node = node.children[1]  # search at right sub-tree
-            break
         else:  # is a categoric attribute
             for child in node.children:
                 if v == child.value:

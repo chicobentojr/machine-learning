@@ -28,9 +28,8 @@ ATTRIBUTE_AMOUNT = 'attribute amount'
 
 
 def get_labels_filtered(labels):
-    if len(labels) == 2:
-        labels.sort()
-        labels.reverse()
+    labels.sort()
+    labels.reverse()
     return labels
 
 
@@ -43,8 +42,9 @@ def get_labels_from_confusion_matrix(matrix_dict, sep='-'):
     return get_labels_filtered(list(labels))
 
 
-def get_pretty_confusion_matrix(matrix_dict, sep='-'):
+def get_confusion_matrix_from_dict(matrix_dict, sep='-'):
     labels = get_labels_from_confusion_matrix(matrix_dict, sep)
+    print(labels)
     m = []
     r = '\t{}\n'.format('\t'.join(labels))
     for index, x_label in enumerate(labels):
@@ -59,13 +59,12 @@ def get_pretty_confusion_matrix(matrix_dict, sep='-'):
     # print(r)
     # for n in m:
     #     print(n)
-    return r
+    return m
 
 
-def get_evaluation_metrics(matrix, sep='-'):
-    labels = get_labels_from_confusion_matrix(matrix, sep)
-    n = reduce((lambda x, y: x + y), matrix.values())
-    logger.debug('Total predicted: {}'.format(n))
+def get_evaluation_metrics(matrix, labels):
+    # labels = get_labels_from_confusion_matrix(matrix, sep)
+    # n = reduce((lambda x, y: x + y), matrix.values())
     metrics = {
         ACCURACY: 0,
         PRECISION_MACRO: 0,
@@ -74,20 +73,23 @@ def get_evaluation_metrics(matrix, sep='-'):
         RECALL_MICRO: 0,
         LABELS: {}
     }
+    n = 0
     total_vp = 0
     total_fp = 0
     total_fn = 0
 
-    for x in labels:
-        metrics[ACCURACY] += matrix['{}{}{}'.format(x, sep, x)]
-        metrics[LABELS][x] = {'vp': 0, 'fp': 0, 'fn': 0}
-
-        for y in labels:
-            if x == y:
-                metrics[LABELS][x]['vp'] = matrix['{}{}{}'.format(x, sep, y)]
+    for x_i in range(len(labels)):
+        metrics[ACCURACY] += matrix[x_i][x_i]
+        metrics[LABELS][labels[x_i]] = {'vp': 0, 'fp': 0, 'fn': 0}
+        for y_i in range(len(labels)):
+            n += matrix[x_i][y_i]
+            if x_i == y_i:
+                metrics[LABELS][labels[x_i]]['vp'] = matrix[x_i][y_i]
             else:
-                metrics[LABELS][x]['fp'] = matrix['{}{}{}'.format(y, sep, x)]
-                metrics[LABELS][x]['fn'] = matrix['{}{}{}'.format(x, sep, y)]
+                metrics[LABELS][labels[x_i]]['fn'] += matrix[x_i][y_i]
+                metrics[LABELS][labels[x_i]]['fp'] += matrix[y_i][x_i]
+
+    for x in labels:
         vp = metrics[LABELS][x]['vp']
         fn = metrics[LABELS][x]['fn']
         fp = metrics[LABELS][x]['fp']
@@ -227,9 +229,12 @@ def test_forest(test_data, forest):
 
         logger.debug('{}\t\t\t{}'.format(prediction, real_label))
 
-    metrics = get_evaluation_metrics(confusion_matrix)
-    # logger.debug('Confusion Matrix')
-    # logger.debug(get_pretty_confusion_matrix(confusion_matrix))
+    m = get_confusion_matrix_from_dict(confusion_matrix)
+    for r in m:
+        print(r)
+    print(confusion_matrix)
+    metrics = get_evaluation_metrics(m, possible_labels)
+    print('Confusion Matrix')
     # logger.debug('')
     # logger.debug('Metrics')
     # logger.debug(json.dumps(metrics, indent=2))
@@ -349,8 +354,11 @@ def create(filename, separator, tree_amount, attributes_amount,
            last_attributes_amount, test_result_output, bootstrap
            ):
     """Create a random forest based on a CSV dataset"""
+    random.seed(2)
 
     dataset = pd.read_csv(filename, sep=separator)
+    y_field = dataset.columns[-1]
+    dataset[y_field] = dataset[y_field].astype(str)
     attributes = dataset.columns[:-1].tolist()
 
     if json_folder:
@@ -370,18 +378,7 @@ def create(filename, separator, tree_amount, attributes_amount,
                                      initial_attributes_amount, last_attributes_amount,
                                      img_folder, json_folder, test_result_output)
     elif bootstrap:
-        logger.debug('BOOTSTRAP')
-        logger.debug('Dataset')
-        logger.debug(dataset)
-        logger.debug('')
         train, test = get_dataset_bootstrap(dataset)
-        logger.debug('train')
-        logger.debug(train)
-        logger.debug('')
-        logger.debug('test')
-        logger.debug(test)
-        logger.debug('')
-
         forest = []
         trees_attributes = []
         for t_index in range(tree_amount):
