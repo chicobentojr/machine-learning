@@ -2,17 +2,17 @@ import os
 import logging
 import math
 import random
-import pandas as pd
+import time
 import click
 import click_log
 import json
+import pandas as pd
 import decision_tree as dt
-from functools import reduce
-from anytree import RenderTree
 from anytree.exporter import JsonExporter
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
+json_exporter = JsonExporter(indent=2)
 
 ACCURACY = 'accuracy'
 ERROR_RATE = 'error_rate'
@@ -49,21 +49,12 @@ def get_labels_from_confusion_matrix(matrix_dict, sep='-'):
 
 def get_confusion_matrix_from_dict(matrix_dict, sep='-'):
     labels = get_labels_from_confusion_matrix(matrix_dict, sep)
-    print(labels)
     m = []
-    r = '\t{}\n'.format('\t'.join(labels))
     for index, x_label in enumerate(labels):
-        line = '{}\t'.format(x_label)
         m.append([])
         for y_label in labels:
-            line += '{}\t'.format(
-                matrix_dict['{}{}{}'.format(x_label, sep, y_label)])
             m[index].append(
                 matrix_dict['{}{}{}'.format(x_label, sep, y_label)])
-        r += '{}\n'.format(line)
-    # print(r)
-    # for n in m:
-    #     print(n)
     return m
 
 
@@ -175,16 +166,60 @@ def get_f_measure(precision, recall, beta=1.0):
     return (1 + math.pow(beta, 2)) * ((precision * recall)/((math.pow(beta, 2) * precision) + recall))
 
 
-def describe_metrics(metrics):
-    accuracy = metrics[ACCURACY]
-    print()
-    print('Accuracy: {}'.format(accuracy))
-    print('Error rate: {}'.format(1 - accuracy))
-    print('Precision Macro: {}'.format(1 - accuracy))
-    print('Precision Micro: {}'.format(1 - accuracy))
-    print('Recall Macro: {}'.format(1 - accuracy))
-    print('Recall Micro: {}'.format(1 - accuracy))
+def get_empty_result_dict(labels):
+    result_dict = {
+        TREE_AMOUNT: [],
+        ATTRIBUTE_AMOUNT: [],
+        ACCURACY: [],
+        ERROR_RATE: [],
+        PRECISION_MACRO: [],
+        PRECISION_MICRO: [],
+        RECALL_MACRO: [],
+        RECALL_MICRO: [],
+    }
+    for label in labels:
+        label_attr = '{}_{}'.format(LABELS, label)
+        result_dict['{}_{}'.format(label_attr, VP)] = []
+        result_dict['{}_{}'.format(label_attr, FP)] = []
+        result_dict['{}_{}'.format(label_attr, FN)] = []
+        result_dict['{}_{}'.format(label_attr, PRECISION)] = []
+        result_dict['{}_{}'.format(label_attr, RECALL)] = []
+        result_dict['{}_{}'.format(label_attr, F_MEASURE)] = []
 
+    return result_dict
+
+
+def add_metrics_to_dict(result_dict, metrics, tree_amount, attributes_amount):
+    result_dict[ACCURACY].append(metrics[ACCURACY])
+    result_dict[ERROR_RATE].append(metrics[ERROR_RATE])
+    result_dict[PRECISION_MACRO].append(metrics[PRECISION_MACRO])
+    result_dict[PRECISION_MICRO].append(metrics[PRECISION_MICRO])
+    result_dict[RECALL_MACRO].append(metrics[RECALL_MACRO])
+    result_dict[RECALL_MICRO].append(metrics[RECALL_MICRO])
+    result_dict[TREE_AMOUNT].append(tree_amount)
+    result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
+
+    for label in metrics[LABELS].keys():
+        label_attr = '{}_{}'.format(LABELS, label)
+
+        result_dict['{}_{}'.format(label_attr, VP)].append(metrics[LABELS][label][VP])
+        result_dict['{}_{}'.format(label_attr, FP)].append(metrics[LABELS][label][FP])
+        result_dict['{}_{}'.format(label_attr, FN)].append(metrics[LABELS][label][FN])
+        result_dict['{}_{}'.format(label_attr, PRECISION)].append(metrics[LABELS][label][PRECISION])
+        result_dict['{}_{}'.format(label_attr, RECALL)].append(metrics[LABELS][label][RECALL])
+        result_dict['{}_{}'.format(label_attr, F_MEASURE)].append(metrics[LABELS][label][F_MEASURE])
+
+    return result_dict
+
+
+def describe_metrics(metrics):
+    print()
+    print('Accuracy: {}'.format(metrics[ACCURACY]))
+    print('Error rate: {}'.format(1 - metrics[ACCURACY]))
+    print('Precision Macro: {}'.format(metrics[PRECISION_MACRO]))
+    print('Precision Micro: {}'.format(metrics[PRECISION_MICRO]))
+    print('Recall Macro: {}'.format(metrics[RECALL_MACRO]))
+    print('Recall Micro: {}'.format(metrics[RECALL_MICRO]))
     print()
     print('Confusion Matrix')
     print('-'*50)
@@ -243,54 +278,43 @@ def test_forest(test_data, forest):
     logger.debug('Forest Predicted\tReal')
     logger.debug('-'*30)
 
-    confusion_matrix = {}
+    matrix_dict = {}
     possible_labels = get_labels_filtered(unique_labels)
     for x_label in possible_labels:
         for y_label in possible_labels:
-            confusion_matrix['{}-{}'.format(x_label, y_label)] = 0
+            matrix_dict['{}-{}'.format(x_label, y_label)] = 0
 
     for index, predictions in enumerate(predicted_labels):
         prediction = forest_decision(predictions)
         real_label = real_labels.values[index]
-        if '{}-{}'.format(real_label, predicted_label) in confusion_matrix:
-            confusion_matrix['{}-{}'.format(real_label, prediction)] += 1
+        if '{}-{}'.format(real_label, predicted_label) in matrix_dict:
+            matrix_dict['{}-{}'.format(real_label, prediction)] += 1
 
         logger.debug('{}\t\t\t{}'.format(prediction, real_label))
 
-    m = get_confusion_matrix_from_dict(confusion_matrix)
-    print(possible_labels)
-    for r in m:
-        print(r)
-    print(confusion_matrix)
-    metrics = get_evaluation_metrics(m, possible_labels)
+    matrix = get_confusion_matrix_from_dict(matrix_dict)
+    metrics = get_evaluation_metrics(matrix, possible_labels)
+
     return metrics
 
 
-def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder, output_filename):
+def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder):
     attributes = dataset.columns[:-1].tolist()
+    y_field = dataset.columns[-1]
     folds = generate_folds(dataset, k_fold)
-    tr = []
-    json_exporter = JsonExporter(indent=2)
-    tests_result_dict = {
-        TREE_AMOUNT: [],
-        ATTRIBUTE_AMOUNT: [],
-        ACCURACY: [],
-        ERROR_RATE: [],
-        PRECISION_MACRO: [],
-        PRECISION_MICRO: [],
-        RECALL_MACRO: [],
-        RECALL_MICRO: [],
-    }
+    possible_labels = dataset[y_field].unique().tolist()
 
-    # for tree_amount in range(init_tree, last_tree + 1, n_tree_step):
-    # for attributes_amount in range(init_attr, last_attr + 1):
+    result_dict = get_empty_result_dict(possible_labels)
+
     for f_index, (train, test) in enumerate(folds):
-        forest = []
-        trees_attributes = []
         logger.info('Processing fold {}'.format(f_index + 1))
         logger.info('Training {} trees with {} instances'.format(
             tree_amount, len(train)))
+
+        forest = []
+
         for t_index in range(tree_amount):
+            logger.info('Getting dataset bootstrap')
             bootstrap_train, _ = get_dataset_bootstrap(train)
 
             logger.info('Generating tree {} with {} attributes'.format(
@@ -298,7 +322,6 @@ def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder
             tree = dt.generate_tree(
                 bootstrap_train, attributes, logger=logger, m=attributes_amount)
             forest.append(tree)
-            trees_attributes.append(attributes)
 
             if img_folder:
                 dt.export_dot(tree).to_picture(
@@ -309,30 +332,15 @@ def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder
 
         logger.info('Testing forest with {} instances'.format(len(test)))
         metrics = test_forest(test, forest)
-        logger.info('Testing finished with {} accuracy'.format(
-            metrics[ACCURACY]))
+        logger.info('Testing finished')
         logger.info('')
-        tr.append(metrics)
+        add_metrics_to_dict(result_dict, metrics,
+                            tree_amount, attributes_amount)
 
-        for index, metric in enumerate(tr):
-            print('Result fold {}'.format(index + 1))
-            print(json.dumps(metric, indent=2))
-            tests_result_dict[TREE_AMOUNT].append(tree_amount)
-            tests_result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
-            tests_result_dict[ACCURACY].append(metric[ACCURACY])
-            tests_result_dict[ERROR_RATE].append(metric[ERROR_RATE])
-            tests_result_dict[PRECISION_MACRO].append(
-                metric[PRECISION_MACRO])
-            tests_result_dict[PRECISION_MICRO].append(
-                metric[PRECISION_MICRO])
-            tests_result_dict[RECALL_MACRO].append(metric[RECALL_MACRO])
-            tests_result_dict[RECALL_MICRO].append(metric[RECALL_MICRO])
-    result_frame = pd.DataFrame(tests_result_dict)
-    print(result_frame)
-    print(result_frame.describe())
+        if logger.isEnabledFor(logging.INFO):
+            describe_metrics(metrics)
 
-    if output_filename:
-        result_frame.to_csv(output_filename)
+    return result_dict
 
 
 @click.group()
@@ -368,7 +376,6 @@ def create(filename, separator, tree_amount, attributes_amount,
     attributes = dataset.columns[:-1].tolist()
 
     if json_folder:
-        json_exporter = JsonExporter(indent=2)
         if not os.path.exists(json_folder):
             os.makedirs(json_folder)
 
@@ -380,10 +387,31 @@ def create(filename, separator, tree_amount, attributes_amount,
         attributes_amount = int(math.sqrt(len(attributes)))
 
     if initial_tree_amount != 0 and last_tree_amount != 0:
-        n_cross_validation(dataset, k_fold,
-                           initial_tree_amount, last_tree_amount,
-                           initial_attributes_amount, last_attributes_amount,
-                           n_tree_step, img_folder, json_folder, test_result_output)
+        possible_labels = dataset[y_field].unique().tolist()
+        test_results = get_empty_result_dict(possible_labels)
+
+        if initial_attributes_amount == 0 and last_attributes_amount == 0:
+            initial_attributes_amount = attributes_amount
+            last_attributes_amount = attributes_amount
+
+        start = time.time()
+        for tree_amount in range(initial_tree_amount, last_tree_amount + 1, n_tree_step):
+            for attributes_amount in range(initial_attributes_amount, last_attributes_amount + 1):
+                r = cross_validation(
+                    dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder)
+
+                for k in r.keys():
+                    test_results[k].extend(r[k])
+        end = time.time()
+
+        logger.info('Multiple cross validation finished')
+        print()
+        print('Time elapsed {} seconds'.format(end - start))
+
+        if test_result_output:
+            result_frame = pd.DataFrame(test_results)
+            result_frame.to_csv(test_result_output, index=False)
+
     elif bootstrap:
         train, test = get_dataset_bootstrap(dataset)
         forest = []
@@ -400,115 +428,29 @@ def create(filename, separator, tree_amount, attributes_amount,
 
         metrics = test_forest(test, forest)
         logger.info('Metrics')
-        logger.info(json.dumps(metrics, indent=2))
-        describe_metrics(metrics)
+        if logger.isEnabledFor(logging.INFO):
+            describe_metrics(metrics)
 
     else:
-        folds = generate_folds(dataset, k_fold)
-        tr = []
-        for f_index, (train, test) in enumerate(folds):
-            forest = []
-            trees_attributes = []
-            logger.info('Processing fold {}'.format(f_index + 1))
-            logger.info('Training {} trees with {} instances'.format(
-                tree_amount, len(train)))
-            for t_index in range(tree_amount):
-                bootstrap_train, _ = get_dataset_bootstrap(train)
+        start = time.time()
+        result_dict = cross_validation(
+            dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder)
+        end = time.time()
 
-                # if attributes_amount != -1:
-                #     random.shuffle(attributes)
-                #     attrs = attributes[:attributes_amount]
-                # else:
-                #     attrs = attributes
+        logger.info('Cross validation finished')
+        print('Time elapsed {} seconds'.format(end - start))
 
-                logger.info('Generating tree {} with {}'.format(
-                    t_index + 1, attributes_amount))
-                tree = dt.generate_tree(
-                    bootstrap_train, attributes, logger=logger, m=attributes_amount)
-                forest.append(tree)
-                trees_attributes.append(attributes)
+        result_frame = pd.DataFrame(result_dict)
 
-                if img_folder:
-                    dt.export_dot(tree).to_picture(
-                        '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
-                if json_folder:
-                    with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
-                        tree_file.write(json_exporter.export(tree))
-
-            for index, tree in enumerate(forest):
-                logger.debug(f'Tree {index+1}')
-                logger.debug('Attributes')
-                logger.debug(trees_attributes[index])
-                logger.debug('-'*50)
-                logger.debug(RenderTree(tree))
-                logger.debug('-'*50)
-
-            logger.info('Testing forest with {} instances'.format(len(test)))
-            metrics = test_forest(test, forest)
-            # logger.info('Test result')
-            logger.info('Testing finished with {} accuracy'.format(
-                metrics[ACCURACY]))
-            logger.info('')
-            tr.append(metrics)
-            # processing_result_metrics(metrics)
-
-        result_dict = {
-            ACCURACY: [],
-            ERROR_RATE: [],
-            PRECISION_MACRO: [],
-            PRECISION_MICRO: [],
-            RECALL_MACRO: [],
-            RECALL_MICRO: [],
-            TREE_AMOUNT: [],
-            ATTRIBUTE_AMOUNT: []
-        }
-
-        possible_labels = dataset[y_field].unique().tolist()
-
-        for label in possible_labels:
-            label_attr = '{}_{}'.format(LABELS, label)
-            result_dict['{}_{}'.format(label_attr, VP)] = []
-            result_dict['{}_{}'.format(label_attr, FP)] = []
-            result_dict['{}_{}'.format(label_attr, FN)] = []
-            result_dict['{}_{}'.format(label_attr, PRECISION)] = []
-            result_dict['{}_{}'.format(label_attr, RECALL)] = []
-            result_dict['{}_{}'.format(label_attr, F_MEASURE)] = []
-
-        for index, metric in enumerate(tr):
-            print('Result fold {}'.format(index + 1))
-            print(json.dumps(metric, indent=2))
-            result_dict[ACCURACY].append(metric[ACCURACY])
-            result_dict[ERROR_RATE].append(metric[ERROR_RATE])
-            result_dict[PRECISION_MACRO].append(metric[PRECISION_MACRO])
-            result_dict[PRECISION_MICRO].append(metric[PRECISION_MICRO])
-            result_dict[RECALL_MACRO].append(metric[RECALL_MACRO])
-            result_dict[RECALL_MICRO].append(metric[RECALL_MICRO])
-            result_dict[TREE_AMOUNT].append(tree_amount)
-            result_dict[ATTRIBUTE_AMOUNT].append(attributes_amount)
-
-            for label in metric[LABELS].keys():
-                label_attr = '{}_{}'.format(LABELS, label)
-
-                result_dict['{}_{}'.format(label_attr, VP)].append(
-                    metric[LABELS][label][VP])
-                result_dict['{}_{}'.format(label_attr, FP)].append(
-                    metric[LABELS][label][FP])
-                result_dict['{}_{}'.format(label_attr, FN)].append(
-                    metric[LABELS][label][FN])
-                result_dict['{}_{}'.format(label_attr, PRECISION)].append(
-                    metric[LABELS][label][PRECISION])
-                result_dict['{}_{}'.format(label_attr, RECALL)].append(
-                    metric[LABELS][label][RECALL])
-                result_dict['{}_{}'.format(label_attr, F_MEASURE)].append(
-                    metric[LABELS][label][F_MEASURE])
-
-        print(result_dict)
-        dt_r = pd.DataFrame(result_dict)
-        print(dt_r)
-        print(dt_r.describe())
+        logger.info('')
+        logger.info('Results')
+        logger.info(result_frame)
+        logger.info('')
+        logger.info('Summary')
+        logger.info(result_frame.describe())
 
         if test_result_output:
-            dt_r.to_csv(test_result_output)
+            result_frame.to_csv(test_result_output, index=False)
 
 
 if __name__ == "__main__":
