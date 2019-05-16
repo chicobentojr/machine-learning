@@ -408,15 +408,15 @@ def create(filename, separator, tree_amount, attributes_amount,
 
                 for k in r.keys():
                     test_results[k].extend(r[k])
+
+                if test_result_output:
+                    result_frame = pd.DataFrame(test_results)
+                    result_frame.to_csv(test_result_output, index=False)
         end = time.time()
 
         logger.info('Multiple cross validation finished')
         print()
         print('Time elapsed {} seconds'.format(end - start))
-
-        if test_result_output:
-            result_frame = pd.DataFrame(test_results)
-            result_frame.to_csv(test_result_output, index=False)
 
     elif bootstrap:
         start = time.time()
