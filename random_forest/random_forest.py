@@ -202,12 +202,18 @@ def add_metrics_to_dict(result_dict, metrics, tree_amount, attributes_amount):
     for label in metrics[LABELS].keys():
         label_attr = '{}_{}'.format(LABELS, label)
 
-        result_dict['{}_{}'.format(label_attr, VP)].append(metrics[LABELS][label][VP])
-        result_dict['{}_{}'.format(label_attr, FP)].append(metrics[LABELS][label][FP])
-        result_dict['{}_{}'.format(label_attr, FN)].append(metrics[LABELS][label][FN])
-        result_dict['{}_{}'.format(label_attr, PRECISION)].append(metrics[LABELS][label][PRECISION])
-        result_dict['{}_{}'.format(label_attr, RECALL)].append(metrics[LABELS][label][RECALL])
-        result_dict['{}_{}'.format(label_attr, F_MEASURE)].append(metrics[LABELS][label][F_MEASURE])
+        result_dict['{}_{}'.format(label_attr, VP)].append(
+            metrics[LABELS][label][VP])
+        result_dict['{}_{}'.format(label_attr, FP)].append(
+            metrics[LABELS][label][FP])
+        result_dict['{}_{}'.format(label_attr, FN)].append(
+            metrics[LABELS][label][FN])
+        result_dict['{}_{}'.format(label_attr, PRECISION)].append(
+            metrics[LABELS][label][PRECISION])
+        result_dict['{}_{}'.format(label_attr, RECALL)].append(
+            metrics[LABELS][label][RECALL])
+        result_dict['{}_{}'.format(label_attr, F_MEASURE)].append(
+            metrics[LABELS][label][F_MEASURE])
 
     return result_dict
 
@@ -413,10 +419,14 @@ def create(filename, separator, tree_amount, attributes_amount,
             result_frame.to_csv(test_result_output, index=False)
 
     elif bootstrap:
+        start = time.time()
+        logger.info('Getting dataset bootstrap')
         train, test = get_dataset_bootstrap(dataset)
         forest = []
         trees_attributes = []
         for t_index in range(tree_amount):
+            logger.info('Generating tree {} with {} attributes'.format(
+                t_index + 1, attributes_amount))
             tree = dt.generate_tree(
                 train, attributes, logger=logger, m=attributes_amount)
             forest.append(tree)
@@ -426,10 +436,15 @@ def create(filename, separator, tree_amount, attributes_amount,
                 dt.export_dot(tree).to_picture(
                     '{}/bootstrap-tree-{}.png'.format(img_folder.rstrip('/'), t_index + 1))
 
+        logger.info('Testing forest with {} instances'.format(len(test)))
         metrics = test_forest(test, forest)
+        logger.info('Testing finished')
+        logger.info('')
+        end = time.time()
         logger.info('Metrics')
         if logger.isEnabledFor(logging.INFO):
             describe_metrics(metrics)
+        print('Time elapsed {} seconds'.format(end - start))
 
     else:
         start = time.time()
