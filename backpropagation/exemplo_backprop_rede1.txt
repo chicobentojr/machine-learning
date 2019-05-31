@@ -1,0 +1,101 @@
+Parametro de regularizacao lambda=0.000
+
+Inicializando rede com a seguinte estrutura de neuronios pr camadas: [1 2 1]
+
+Theta1 inicial (pesos de cada neuronio, incluindo bias, armazenados nas linhas):
+	0.40000  0.10000  
+	0.30000  0.20000  
+
+Theta2 inicial (pesos de cada neuronio, incluindo bias, armazenados nas linhas):
+	0.70000  0.50000  0.60000  
+
+
+Conjunto de treinamento
+	Exemplo 1
+		x: [0.13000]
+		y: [0.90000]
+	Exemplo 2
+		x: [0.42000]
+		y: [0.23000]
+
+--------------------------------------------
+Calculando erro/custo J da rede
+	Processando exemplo de treinamento 1
+	Propagando entrada [0.13000]
+		a1: [1.00000   0.13000]
+
+		z2: [0.41300   0.32600]
+		a2: [1.00000   0.60181   0.58079]
+
+		z3: [1.34937]
+		a3: [0.79403]
+
+		f(x): [0.79403]
+	Saida predita para o exemplo 1: [0.79403]
+	Saida esperada para o exemplo 1: [0.90000]
+	J do exemplo 1: 0.366
+
+	Processando exemplo de treinamento 2
+	Propagando entrada [0.42000]
+		a1: [1.00000   0.42000]
+
+		z2: [0.44200   0.38400]
+		a2: [1.00000   0.60874   0.59484]
+
+		z3: [1.36127]
+		a3: [0.79597]
+
+		f(x): [0.79597]
+	Saida predita para o exemplo 2: [0.79597]
+	Saida esperada para o exemplo 2: [0.23000]
+	J do exemplo 2: 1.276
+
+J total do dataset (com regularizacao): 0.82098
+
+
+
+--------------------------------------------
+Rodando backpropagation
+	Calculando gradientes com base no exemplo 1
+		delta3: [-0.10597]
+		delta2: [-0.01270   -0.01548]
+		Gradientes de Theta2 com base no exemplo 1:
+			-0.10597  -0.06378  -0.06155  
+
+		Gradientes de Theta1 com base no exemplo 1:
+			-0.01270  -0.00165  
+			-0.01548  -0.00201  
+
+	Calculando gradientes com base no exemplo 2
+		delta3: [0.56597]
+		delta2: [0.06740   0.08184]
+		Gradientes de Theta2 com base no exemplo 2:
+			0.56597  0.34452  0.33666  
+
+		Gradientes de Theta1 com base no exemplo 2:
+			0.06740  0.02831  
+			0.08184  0.03437  
+
+	Dataset completo processado. Calculando gradientes regularizados
+		Gradientes finais para Theta1 (com regularizacao):
+			0.02735  0.01333  
+			0.03318  0.01618  
+
+		Gradientes finais para Theta2 (com regularizacao):
+			0.23000  0.14037  0.13756  
+
+
+--------------------------------------------
+Rodando verificacao numerica de gradientes (epsilon=0.0000010000)
+	Gradiente numerico de Theta1:
+		0.02735  0.01333  
+		0.03318  0.01618  
+
+	Gradiente numerico de Theta2:
+		0.23000  0.14037  0.13756  
+
+
+--------------------------------------------
+Verificando corretude dos gradientes com base nos gradientes numericos:
+	Erro entre gradiente via backprop e gradiente numerico para Theta1: 0.0000000011
+	Erro entre gradiente via backprop e gradiente numerico para Theta2: 0.0000000525
