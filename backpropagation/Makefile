@@ -10,5 +10,9 @@ brew-path:
 run: 
 	python backpropagation.py backpropagation $(folder)/network.txt $(folder)/initial_weights.txt $(folder)/data_set.txt -v debug
 
+rede1: 
+	$(eval f := $(folder)/rede1)
+	python backpropagation.py backpropagation $(f)/network.txt $(f)/initial_weights.txt $(f)/data_set.txt -v debug
+
 
 	

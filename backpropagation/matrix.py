@@ -1,5 +1,7 @@
 import numpy
 
+numpy.set_printoptions(precision=6)   
+
 class Matrix:
     def __init__(self, rows=[]):
         self.matrix = numpy.matrix(rows)
@@ -41,6 +43,10 @@ class Matrix:
     def __str__(self):
         return '{}'.format(self.matrix)
 
+    def str_tabs(self, num_tabs):
+        tabs = '\t' * num_tabs
+        output = tabs + '{}'.format(self.matrix)
+        return output.replace('\n', '\n'+tabs)
 
     def print(self):
         print('Matrix %i x %i' %(self.num_rows, self.num_cols))

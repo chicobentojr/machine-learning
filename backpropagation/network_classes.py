@@ -9,9 +9,10 @@ import pandas as pd
 import matrix as mt
 import numpy
 
+numpy.set_printoptions(precision=6)
+
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
-#logger.info('Testing forest with {} instances'.format(len(test)))
 
 #-------------------------------------------------------
 # Auxiliar functions
@@ -21,6 +22,9 @@ def gaussian(x):
 
 def dot_product(array1, array2):
     return numpy.dot(array1, array2)
+
+def format_list(list_array):
+    return '{}'.format(numpy.array(list_array))
 
 #-------------------------------------------------------
 
@@ -46,7 +50,7 @@ class DataSet:
         i = 1
         print('\ndata set:')
         for example in self.examples:
-            print('{}: attributes = {} -> output = {}'.format(i, example.x, example.y))
+            print('#{}: x = {} => y = {}'.format(i, format_list(example.x), format_list(example.y)))
             i += 1
 
 
@@ -74,7 +78,6 @@ class Network:
         dataframe = pd.read_csv(network_filename, sep=" ", header=None)
         values = dataframe[0].tolist()
         self.regularizationFactor = values[0]
-        self.bias_added = False
         
         n = len(values)
         self.total_layers = n-1
@@ -106,60 +109,31 @@ class Network:
 
 
     def propagate_instance(self, x):
-        self.layers[0].neurons = x  # set a1 = x
-        if not self.bias_added:
-            self.layers[0].neurons.insert(0,1) # add bias
-        print('a_l=1 = {}'.format(self.layers[0].neurons))
+        self.layers[0].neurons = x[:]  # set a1 = x
 
         for l in range(1, self.total_layers):
             prev_layer = self.layers[l-1]
             theta = prev_layer.weight_matrix
             a = prev_layer.neurons
-            if l > 1:
-                a.insert(0,1) # add bias
+            a.insert(0,1) # add bias
             z = theta.multiply_by_vector(a)
             layer = self.layers[l]
             layer.neurons = list(map(gaussian, z))
-            #print('z = {}'.format(z))
-            print('a_l={} = {}'.format(l+1, self.layers[l].neurons))            
+            
+            logger.info('a{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
+            logger.info('z{} = {}'.format(l+1, format_list(z)))
 
-        self.bias_added = True
+        l = self.total_layers-1
+        logger.info('a{} = {}'.format(l+1, format_list(self.layers[l].neurons)))
 
         return self.layers[-1].neurons
 
-
-    def cost(self, xi, yi, f_xi):
-        _yi = list(map(lambda y: -y, yi))
-        log = list(map(lambda f: math.log(f), f_xi))
-        Ji = dot_product(yi, log)
-
-        n_yi  = list(map(lambda y: 1-y, yi))
-        n_log = list(map(lambda f: math.log(1-f), f_xi))
-        Ji -= dot_product(n_yi, n_log)
-        return Ji
 
     def sum_square_weights(self):
         total = 0
         for l in range(0, self.total_layers-1):
             total += self.layers[l].sum_square_weights()
         return total
-        
-
-    def cost_regularizaded(self, data_set):
-        n = len(data_set.examples)
-        J = 0
-        
-        for example in data_set.examples:
-            xi = example.x
-            yi = example.y
-            f_xi = self.propagate_instance(xi)
-            Ji = self.cost(xi, yi, f_xi)
-            J += numpy.sum(Ji)
-
-        J /= n
-        S = self.sum_square_weights()
-        S *= self.regularizationFactor/(2*n)
-        return J+S
 
     def regularize_cost(self, J, numExamples):
         S = self.sum_square_weights()
