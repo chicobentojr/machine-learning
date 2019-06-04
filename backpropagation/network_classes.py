@@ -13,8 +13,16 @@ logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 #logger.info('Testing forest with {} instances'.format(len(test)))
 
+#-------------------------------------------------------
+# Auxiliar functions
+
 def gaussian(x):
     return 1/(1 + math.exp(-x))
+
+def dot_product(array1, array2):
+    return numpy.dot(array1, array2)
+
+#-------------------------------------------------------
 
 class TrainingExample:
     def __init__(self, x, y):
@@ -23,7 +31,7 @@ class TrainingExample:
 
 class DataSet:
     def __init__(self, data_set_filename, num_entries):
-        df = pd.read_csv(data_set_filename, sep=";|,", header=None)
+        df = pd.read_csv(data_set_filename, sep=";|,", header=None, engine='python')
         (numRows, numCols) = df.shape
 
         self.examples = []
@@ -41,28 +49,32 @@ class DataSet:
             print('{}: attributes = {} -> output = {}'.format(i, example.x, example.y))
             i += 1
 
+
 class Layer:
     def __init__(self, num_neurons):
         self.size = num_neurons
-        self.neurons = []
-        for i in range(0, num_neurons):
-            self.neurons.append(0)
-        self.weight_matrix = mt.Matrix()
+        self.neurons = numpy.zeros(num_neurons).tolist()
+        self.weight_matrix = None
+        self.gradient_matrix = None
 
     def sum_square_weights(self):
-        total = 0
-        for row in self.weight_matrix.matrix:
-            square = list(map(lambda x: x*x, row))
-            total += numpy.sum(square) - square[0] # discount bias squared
-        return total
+        return self.weight_matrix.sum_square_weights_without_bias()
+
+    def init_gradient_matrix(self):
+        self.gradient_matrix = mt.Matrix()
+        self.gradient_matrix.set(
+            self.weight_matrix.num_rows,
+            self.weight_matrix.num_cols)
 
 
 class Network:
     def __init__(self, network_filename, initial_weights_filename):
+        
         # read network_filename
         dataframe = pd.read_csv(network_filename, sep=" ", header=None)
         values = dataframe[0].tolist()
         self.regularizationFactor = values[0]
+        self.bias_added = False
         
         n = len(values)
         self.total_layers = n-1
@@ -74,7 +86,7 @@ class Network:
             self.layers.append(Layer(num_neurons))
 
         # read initial_weights_filename    
-        df = pd.read_csv(initial_weights_filename, sep=";|,", header=None)
+        df = pd.read_csv(initial_weights_filename, sep=";|,", header=None, engine='python')
         (numRows, numCols) = df.shape
         
         for l in range(0, numRows):
@@ -82,42 +94,36 @@ class Network:
             layer = self.layers[l]
             num_neurons = layer.size + 1 # +1 for bias
             bias_index = 0
+            rows = []
             
             while bias_index < len(values):
                 coefs = values[bias_index: bias_index + num_neurons]
-                layer.weight_matrix.add_row(coefs)
+                rows.append(coefs)
                 bias_index += num_neurons
 
+            layer.weight_matrix = mt.Matrix(rows)
+            layer.init_gradient_matrix()
 
-    def print(self):
-        print('num entries = %i' %self.num_entries)
-        print('num output = %i' %self.num_output)
-        print('total layers = %i' %self.total_layers)
-        print('layers:')
-        
-        for l in range(0, self.total_layers-1):
-            layer = self.layers[l]
-            print('\nl={}: {} neuronios'.format(l+1, layer.size))
-            layer.weight_matrix.print()
-
-        l = self.total_layers-1
-        layer = self.layers[l]
-        print('\nl={}: {} neuronios - output\n'.format(l+1, layer.size))
-        
 
     def propagate_instance(self, x):
         self.layers[0].neurons = x  # set a1 = x
+        if not self.bias_added:
+            self.layers[0].neurons.insert(0,1) # add bias
         print('a_l=1 = {}'.format(self.layers[0].neurons))
 
         for l in range(1, self.total_layers):
             prev_layer = self.layers[l-1]
             theta = prev_layer.weight_matrix
-            a = prev_layer.neurons.copy()
-            a.insert(0,1) # bias
+            a = prev_layer.neurons
+            if l > 1:
+                a.insert(0,1) # add bias
             z = theta.multiply_by_vector(a)
             layer = self.layers[l]
             layer.neurons = list(map(gaussian, z))
-            print('a_l={} = {}'.format(l+1, self.layers[l].neurons))
+            #print('z = {}'.format(z))
+            print('a_l={} = {}'.format(l+1, self.layers[l].neurons))            
+
+        self.bias_added = True
 
         return self.layers[-1].neurons
 
@@ -125,11 +131,11 @@ class Network:
     def cost(self, xi, yi, f_xi):
         _yi = list(map(lambda y: -y, yi))
         log = list(map(lambda f: math.log(f), f_xi))
-        Ji = mt.dot_product(yi, log)
+        Ji = dot_product(yi, log)
 
         n_yi  = list(map(lambda y: 1-y, yi))
         n_log = list(map(lambda f: math.log(1-f), f_xi))
-        Ji -= mt.dot_product(n_yi, n_log)
+        Ji -= dot_product(n_yi, n_log)
         return Ji
 
     def sum_square_weights(self):
@@ -154,4 +160,35 @@ class Network:
         S = self.sum_square_weights()
         S *= self.regularizationFactor/(2*n)
         return J+S
+
+    def regularize_cost(self, J, numExamples):
+        S = self.sum_square_weights()
+        S *= self.regularizationFactor/(2*numExamples)
+        return J+S
+
+    def __str__(self):
+        output = ''
+        
+        for l in range(0, self.total_layers-1):
+            layer = self.layers[l]
+            output += ('\nl={}: {} neurons\n'.format(l+1, layer.size))
+            output += ('a = {}\n'.format(layer.neurons))
+            output += ('theta = \n{}\n'.format(layer.weight_matrix.matrix))
+
+        l = self.total_layers-1
+        layer = self.layers[l]
+        output += ('\nl={}: {} neurons - output\n'.format(l+1, layer.size))
+        output += ('a = {}\n'.format(layer.neurons))
+        
+        return output
+    
+    def print_all(self):
+        print('num entries = {}'.format(self.num_entries))
+        print('num output = {}'.format(self.num_output))
+        print('total layers = {}'.format(self.total_layers))
+        print('layers: \n{}'.format(self))
+
+    
+        
+
     

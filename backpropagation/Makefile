@@ -8,7 +8,7 @@ brew-path:
 	echo "eval \$($(brew --prefix)/bin/brew shellenv)" >>~/.profile
 
 run: 
-	python backpropagation.py backpropagation $(folder)/network.txt $(folder)/initial_weights.txt $(folder)/data_set.txt
+	python backpropagation.py backpropagation $(folder)/network.txt $(folder)/initial_weights.txt $(folder)/data_set.txt -v debug
 
 
 	
