@@ -39,7 +39,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
                     alpha):
     
     network = ntc.Network(network_filename, initial_weights_filename)
-    #network.print_all()
+    network.print_all()
     
     data_set = ntc.DataSet(data_set_filename, network.num_entries)
 
@@ -99,7 +99,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
                     numpy.matrix(delta[k+1]).transpose(),
                     numpy.matrix(a_k))
                 
-                logger.info('\n\tGradiente de Theta{} : \n{}'.format(k+1, layer_k.gradient_matrix.str_tabs(2)))
+                logger.info('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
         # end for
 
@@ -114,7 +114,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         '''
         count += 1
 
-        logger.info('\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
+        logger.info('\n\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
 
         for k in range(numLayers-2, 0-1, -1):
             layer_k = network.layers[k]
@@ -122,14 +122,14 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             P_k = theta_k.matrix * network.regularizationFactor
             D_k = layer_k.gradient_matrix.matrix
             network.layers[k].gradient_matrix.matrix =  (D_k + P_k) / numExamples
-            logger.info('\n\tGradiente de Theta{} : \n{}'.format(k+1, layer_k.gradient_matrix.str_tabs(2)))
+            logger.info('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
         logger.info('\n 3. Atualizar pesos de cada camada com base nos gradientes')
 
         for k in range(numLayers-2, 0-1, -1):
             layer_k = network.layers[k]
             network.layers[k].weight_matrix.matrix -= (layer_k.gradient_matrix.matrix * alpha)
-            logger.info('\n\tTheta{} = \n{}'.format(k+1, theta_k.str_tabs(2)))
+            logger.info('\n\tTheta{} = \n{}'.format(k+1, network.layers[k].weight_matrix.str_tabs(2)))
         
         logger.info('\n')
 

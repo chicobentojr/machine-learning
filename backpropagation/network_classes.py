@@ -145,14 +145,14 @@ class Network:
         
         for l in range(0, self.total_layers-1):
             layer = self.layers[l]
-            output += ('\nl={}: {} neurons\n'.format(l+1, layer.size))
-            output += ('a = {}\n'.format(layer.neurons))
-            output += ('theta = \n{}\n'.format(layer.weight_matrix.matrix))
+            output += ('\n l={}: {} neurons\n'.format(l+1, layer.size))
+            output += ('\ta{} = {}\n'.format(l+1, layer.neurons))
+            output += ('\tTheta{} = \n{}\n'.format(l+1, layer.weight_matrix.str_tabs(2)))
 
         l = self.total_layers-1
         layer = self.layers[l]
-        output += ('\nl={}: {} neurons - output\n'.format(l+1, layer.size))
-        output += ('a = {}\n'.format(layer.neurons))
+        output += ('\n l={}: {} neurons - output\n'.format(l+1, layer.size))
+        output += ('\ta{} = {}\n'.format(l+1, layer.neurons))
         
         return output
     
