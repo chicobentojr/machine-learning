@@ -6,12 +6,12 @@ import time
 import pandas as pd
 import click
 import click_log
-import numpy
+import numpy as np
 import matrix as mt
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
-numpy.set_printoptions(precision=5)
+np.set_printoptions(precision=5)
 
 #-------------------------------------------------------
 # Auxiliar functions
@@ -19,14 +19,8 @@ numpy.set_printoptions(precision=5)
 def gaussian(x):
     return 1/(1 + math.exp(-x))
 
-def product_element_by_element(array1, array2):
-    result = []
-    for i in range (0, len(array1)):
-        result.append(array1[i] * array2[i])
-    return result
-
-def format_list(list_array):
-    return '{}'.format(numpy.array(list_array))
+def format_list(array_list):
+    return '{}'.format(np.array(array_list))
 
 #-------------------------------------------------------
 
@@ -50,16 +44,16 @@ class DataSet:
 
     def print(self):
         i = 1
-        print('\ndata set:')
+        logger.info('\nData set:')
         for example in self.examples:
-            print('#{}: x = {} => y = {}'.format(i, format_list(example.x), format_list(example.y)))
+            logger.info('#{}: x = {} => y = {}'.format(i, format_list(example.x), format_list(example.y)))
             i += 1
 
 
 class Layer:
     def __init__(self, num_neurons):
         self.size = num_neurons
-        self.neurons = numpy.zeros(num_neurons).tolist()
+        self.neurons = np.zeros(num_neurons).tolist()
         self.weight_matrix = None
         self.gradient_matrix = None
 
@@ -90,12 +84,40 @@ class Network:
             num_neurons = int(value)
             self.layers.append(Layer(num_neurons))
 
-        # read initial_weights_filename    
+        # read initial_weights_filename
+        self.read_as_txt(initial_weights_filename)
+    
+        
+    def read_as_txt(self, initial_weights_filename):
+        fp = open(initial_weights_filename, 'r')
+        line = fp.readline().replace(' ','')
+        l=0
+        
+        while(line):
+            rows = []
+            for str_weights in line.split(';'):
+                weights = [float(x) for x in str_weights.split(',')]
+                rows.append(weights)
+            
+            layer = self.layers[l]
+            layer.weight_matrix = mt.Matrix(rows)
+            layer.init_gradient_matrix()
+            
+            l += 1
+            line = fp.readline().replace(' ','')
+
+        fp.close()
+        
+        
+    # para o exemplo 2 desconsidera os 3 primeiros valores da linha (pq?)
+    def read_with_pandas(initial_weights_filename):
         df = pd.read_csv(initial_weights_filename, sep=";|,", header=None, engine='python')
         (numRows, numCols) = df.shape
         
         for l in range(0, numRows):
             values = [x for x in df.iloc[l].tolist() if str(x) != 'nan']
+            print('\nrow: {}'.format(df.iloc[l].tolist()))
+            print('values = {}'.format(values))
             layer = self.layers[l]
             num_neurons = layer.size + 1 # +1 for bias
             bias_index = 0
@@ -138,6 +160,7 @@ class Network:
         
         S *= self.regularizationFactor/(2*numExamples)
         return J+S
+        
 
     def __str__(self):
         output = ''
@@ -154,35 +177,37 @@ class Network:
         output += ('\ta{} = {}\n'.format(l+1, layer.neurons))
         
         return output
+
     
-    def print_all(self):
-        print('num entries = {}'.format(self.num_entries))
-        print('num output = {}'.format(self.num_output))
-        print('total layers = {}'.format(self.total_layers))
-        print('layers: \n{}'.format(self))
+    def print(self):
+        logger.info('num entries = {}'.format(self.num_entries))
+        logger.info('num output = {}'.format(self.num_output))
+        logger.info('total layers = {}'.format(self.total_layers))
+        logger.info('layers: \n{}'.format(self))
 
 #--------------------- Classes End ----------------------------------
 
 
 def cost(yi, f_xi):
-    '''
-    log = list(map(lambda f: -math.log10(f), f_xi))
-    Ji = numpy.dot(yi, log)
-
-    logger.info('dot1 = yi={} .* -log={} = {}'.format(yi, log, Ji))
-
-    n_yi  = list(map(lambda y: 1-y, yi))
-    n_log = list(map(lambda f: math.log10(1-f), f_xi))
-    dot2 = numpy.dot(n_yi, n_log)
-
-    logger.info('dot2 = 1-yi={} .* log={} = {}'.format(n_yi, n_log, dot2))
+    fi = f_xi.copy()
     
-    return Ji - dot2
+    func = np.vectorize(lambda f: -math.log(f))
+    log_fi = func(fi)
+
+    func = np.vectorize(lambda y: 1-y)
+    _1_yi = func(yi.copy())
+
+    func = np.vectorize(lambda f: math.log(1-f))
+    log_1_fi = func(fi)
+
+    arr = (yi * log_fi) - (_1_yi * log_1_fi)
+    return np.sum(arr)
     '''
     J = 0.0
     for k in range(0,len(yi)):
         J += -yi[k] * math.log(f_xi[k]) - (1-yi[k]) * math.log(1-f_xi[k])
     return J
+    '''
 
            
 @click.group()
@@ -200,11 +225,12 @@ def main():
 
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
                     alpha):
-    
+
     network = Network(network_filename, initial_weights_filename)
-    #network.print_all()
+    network.print()
     
     data_set = DataSet(data_set_filename, network.num_entries)
+    data_set.print()
 
     numExamples = len(data_set.examples)
     numLayers = network.total_layers
@@ -231,14 +257,13 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             yi = example.y
             f_xi = network.propagate_instance(xi)
             Ji = cost(yi, f_xi)
-            #Ji = network.regularize_cost(Ji, numExamples)
-            J += numpy.sum(Ji)
+            J += np.sum(Ji)
 
             logger.info('\tSaida predita  para o exemplo {}: {}'.format(i+1, format_list(f_xi)))
             logger.info('\tSaida esperada para o exemplo {}: {}'.format(i+1, format_list(yi)))
             logger.info('\tJ do exemplo {}: {:.5f}'.format(i+1, Ji))
 
-            delta[-1] = numpy.subtract(f_xi, yi)
+            delta[-1] = np.subtract(f_xi, yi)
             logger.info('\n 1.2. Delta da camada de saida\n\tdelta{} = {}'.format(numLayers, delta[-1]))
             logger.info('\n 1.3. Deltas das camadas ocultas')
             
@@ -249,7 +274,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
                 num_neurons = layer_k.size
                 
                 product = theta_k.transpose_and_multiply_by_vector(delta[k+1])
-                delta[k] = numpy.zeros(num_neurons) # with no bias
+                delta[k] = np.zeros(num_neurons) # with no bias
 
                 for j in range (0, num_neurons):
                     delta[k][j] = product[j+1] * a_k[j+1] * (1 - a_k[j+1])
@@ -262,9 +287,9 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             for k in range(numLayers-2, 0-1, -1):
                 layer_k = network.layers[k]
                 a_k = layer_k.neurons
-                gradient = numpy.matmul(
-                    numpy.matrix(delta[k+1]).transpose(),
-                    numpy.matrix(a_k))
+                gradient = np.matmul(
+                    np.matrix(delta[k+1]).transpose(),
+                    np.matrix(a_k))
                 network.layers[k].gradient_matrix.matrix += gradient
                 logger.info('\n\tGradiente de Theta{} = \n{}'.format(k+1, mt.str_tabs(gradient,2)))
 
@@ -287,9 +312,10 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
             theta_k = layer_k.weight_matrix
-            P_k = theta_k.matrix * network.regularizationFactor
-            D_k = layer_k.gradient_matrix.matrix
-            network.layers[k].gradient_matrix.matrix =  (D_k + P_k) / numExamples
+            P_k = theta_k.copy()
+            P_k.regularize(network.regularizationFactor)
+            D_k = layer_k.gradient_matrix
+            network.layers[k].gradient_matrix.matrix =  (D_k.matrix + P_k.matrix) / numExamples
             logger.info('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
         logger.info('\n 3. Atualizar pesos de cada camada com base nos gradientes')
@@ -302,6 +328,6 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         logger.info('\n')
 
 
-
 if __name__ == "__main__":
     main()
+

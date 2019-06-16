@@ -1,5 +1,6 @@
 k_ = 10
 folder = inputs
+ex=1
 
 brew-path: 
 	test -d ~/.linuxbrew && eval $(~/.linuxbrew/bin/brew shellenv)
@@ -10,9 +11,10 @@ brew-path:
 run: 
 	python backpropagation.py backpropagation $(folder)/network.txt $(folder)/initial_weights.txt $(folder)/data_set.txt -v debug
 
-rede1: 
-	$(eval f := $(folder)/rede1)
+run_example: 
+	$(eval f := $(folder)/rede$(ex))
 	python backpropagation.py backpropagation $(f)/network.txt $(f)/initial_weights.txt $(f)/data_set.txt -v debug
+
 
 
 	
