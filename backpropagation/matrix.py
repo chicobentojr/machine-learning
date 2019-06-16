@@ -1,6 +1,12 @@
 import numpy
 
-numpy.set_printoptions(precision=6)   
+numpy.set_printoptions(precision=6)
+
+def str_tabs(numpy_matrix, num_tabs):
+    tabs = '\t' * num_tabs
+    output = tabs + '{}'.format(numpy_matrix)
+    return output.replace('\n', '\n'+tabs)
+
 
 class Matrix:
     def __init__(self, rows=[]):
@@ -12,10 +18,6 @@ class Matrix:
         self.matrix = numpy.zeros((num_rows, num_cols))
         self.num_rows = num_rows
         self.num_cols = num_cols
-        
-
-    def getElem(self, row, col):
-        return self.matrix[row][col]
 
 
     def transpose_and_multiply_by_vector(self, vector):
@@ -44,9 +46,7 @@ class Matrix:
         return '{}'.format(self.matrix)
 
     def str_tabs(self, num_tabs):
-        tabs = '\t' * num_tabs
-        output = tabs + '{}'.format(self.matrix)
-        return output.replace('\n', '\n'+tabs)
+        return str_tabs(self.matrix, num_tabs)
 
     def print(self):
         print('Matrix %i x %i' %(self.num_rows, self.num_cols))
