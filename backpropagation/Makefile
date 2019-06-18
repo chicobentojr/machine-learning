@@ -11,12 +11,13 @@ brew-path:
 run: 
 	python backpropagation.py backpropagation $(folder)/network.txt $(folder)/initial_weights.txt $(folder)/data_set.txt -v debug
 
-run_example: 
+backprop: 
 	$(eval f := $(folder)/rede$(ex))
 	python backpropagation.py backpropagation $(f)/network.txt $(f)/initial_weights.txt $(f)/data_set.txt -v debug
 
 verification: 
 	$(eval f := $(folder)/rede$(ex))
 	python num_verification.py numeric_verification $(f)/network.txt $(f)/initial_weights.txt $(f)/data_set.txt -v debug
+
 
 	

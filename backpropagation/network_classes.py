@@ -156,6 +156,23 @@ class Network:
 
         return self.layers[-1].neurons
 
+    def propagate_instance_and_get_cost(self, xi, yi, log_details=False):
+        f_xi = self.propagate_instance(xi, log_details)
+        fi = f_xi.copy()
+        
+        func = np.vectorize(lambda f: -math.log(f))
+        log_fi = func(fi)
+
+        func = np.vectorize(lambda y: 1-y)
+        _1_yi = func(yi.copy())
+
+        func = np.vectorize(lambda f: math.log(1-f))
+        log_1_fi = func(fi)
+
+        arr = (yi * log_fi) - (_1_yi * log_1_fi)
+        Ji = np.sum(arr)
+        return (f_xi, Ji)
+
 
     def regularize_cost(self, J, numExamples):
         S = 0.0

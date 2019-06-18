@@ -29,21 +29,7 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
             logger.info('\n\tProcessando exemplo #{}'.format(i+1))
             logger.info('\n\tPropagando entrada {}'.format(xi))
         
-        f_xi = network.propagate_instance(xi, log_details)
-        fi = f_xi.copy()
-        
-        func = np.vectorize(lambda f: -math.log(f))
-        log_fi = func(fi)
-
-        func = np.vectorize(lambda y: 1-y)
-        _1_yi = func(yi.copy())
-
-        func = np.vectorize(lambda f: math.log(1-f))
-        log_1_fi = func(fi)
-
-        arr = (yi * log_fi) - (_1_yi * log_1_fi)
-        Ji = np.sum(arr)
-        
+        (f_xi, Ji) = network.propagate_instance_and_get_cost(xi, yi, log_details)
         J += np.sum(Ji)
 
         if log_details:
@@ -81,7 +67,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
     numLayers = network.total_layers
     delta = [None] * numLayers
 
-    less_acceptable_difference = 0.001 # how much?????
+    less_acceptable_difference = 0.0001 # how much?????
     last_regularized_cost = regularized_cost(network, data_set, numExamples, True)
     max_iterations = 100
     stop = False
