@@ -146,11 +146,11 @@ class Network:
             layer = self.layers[l]
             layer.neurons = list(map(gaussian, z))
             
-            logger.info('\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
-            logger.info('\tz{} = {}'.format(l+1, format_list(z)))
+            #logger.info('\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
+            #logger.info('\tz{} = {}'.format(l+1, format_list(z)))
 
         l = self.total_layers-1
-        logger.info('\ta{} = {}\n'.format(l+1, format_list(self.layers[l].neurons)))
+        #logger.info('\ta{} = {}\n'.format(l+1, format_list(self.layers[l].neurons)))
 
         return self.layers[-1].neurons
 

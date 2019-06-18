@@ -25,7 +25,6 @@ def main():
 @click.argument('initial_weights_filename')
 @click.argument('data_set_filename')
 @click.option('--alpha', '-a', default=0.5, help='Weights Update Rate, is used to smooth the gradient')
-#@click.option('--epsilon', '-e', default=0.000001, help='Epsilon for gradient numeric verification')
 
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
                     alpha):
