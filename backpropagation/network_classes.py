@@ -134,7 +134,7 @@ class Network:
             layer.init_gradient_matrix()
 
 
-    def propagate_instance(self, x):
+    def propagate_instance(self, x, log_details=False):
         self.layers[0].neurons = x[:]  # set a1 = x
 
         for l in range(1, self.total_layers):
@@ -145,38 +145,16 @@ class Network:
             z = theta.multiply_by_vector(a)
             layer = self.layers[l]
             layer.neurons = list(map(gaussian, z))
-            
-            #logger.info('\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
-            #logger.info('\tz{} = {}'.format(l+1, format_list(z)))
+
+            if log_details:
+                logger.info('\t\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
+                logger.info('\t\tz{} = {}'.format(l+1, format_list(z)))
 
         l = self.total_layers-1
-        #logger.info('\ta{} = {}\n'.format(l+1, format_list(self.layers[l].neurons)))
+        if log_details:
+            logger.info('\t\ta{} = {}\n'.format(l+1, format_list(self.layers[l].neurons)))
 
         return self.layers[-1].neurons
-
-
-    def propagate_instance_get_f_J(self, xi, yi):
-        f_xi = self.propagate_instance(xi)
-
-        fi = f_xi.copy()
-        
-        func = np.vectorize(lambda f: -math.log(f))
-        log_fi = func(fi)
-
-        func = np.vectorize(lambda y: 1-y)
-        _1_yi = func(yi.copy())
-
-        func = np.vectorize(lambda f: math.log(1-f))
-        log_1_fi = func(fi)
-
-        arr = (yi * log_fi) - (_1_yi * log_1_fi)
-        J = np.sum(arr)
-        '''
-        J = 0.0
-        for k in range(0,len(yi)):
-            J += -yi[k] * math.log(f_xi[k]) - (1-yi[k]) * math.log(1-f_xi[k])
-        '''
-        return (f_xi, J)
 
 
     def regularize_cost(self, J, numExamples):
