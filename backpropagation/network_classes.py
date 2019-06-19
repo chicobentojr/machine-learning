@@ -171,6 +171,16 @@ class Network:
 
         arr = (yi * log_fi) - (_1_yi * log_1_fi)
         Ji = np.sum(arr)
+        '''
+        if log_details:#.
+            print('\t\tyi = {}'.format(yi))
+            print('\t\t-log_fi = {}'.format(log_fi))
+            print('\t\tyi * -log_fi = {}'.format(yi * log_fi))
+            print('\t\t(1-yi) = {}'.format(_1_yi))
+            print('\t\t(log(1-fi) = {}'.format(log_1_fi))
+            print('\t\t(1-yi) * log(1-fi) = {}'.format(_1_yi * log_1_fi))
+            print('\t\tJi = sum({})'.format(arr))
+        '''
         return (f_xi, Ji)
 
 
@@ -181,6 +191,14 @@ class Network:
         
         S *= self.regularizationFactor/(2*numExamples)
         return J+S
+
+    def regularize_costs(self, Jplus, Jminus, numExamples):
+        S = 0.0
+        for l in range(0, self.total_layers-1):
+            S += self.layers[l].sum_square_weights()
+        
+        S *= self.regularizationFactor/(2*numExamples)
+        return (Jplus+S, Jminus+S)
         
 
     def __str__(self):
@@ -205,4 +223,11 @@ class Network:
         logger.info('num output = {}'.format(self.num_output))
         logger.info('total layers = {}'.format(self.total_layers))
         logger.info('layers: \n{}'.format(self))
+
+    def print_Thetas(self):
+        for k in range(0,self.total_layers-1):
+            layer_k = self.layers[k]
+            theta_k = layer_k.weight_matrix
+            print('\tTheta{} =\n {}'.format(k+1, theta_k.str_tabs(2)))
+            
     

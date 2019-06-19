@@ -30,7 +30,7 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
             logger.info('\n\tPropagando entrada {}'.format(xi))
         
         (f_xi, Ji) = network.propagate_instance_and_get_cost(xi, yi, log_details)
-        J += np.sum(Ji)
+        J += Ji
 
         if log_details:
             logger.info('\tSaida predita  para o exemplo {}: {}'.format(i+1, net.format_list(f_xi)))
@@ -39,23 +39,15 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
 
     J /= numExamples
     J = network.regularize_cost(J, numExamples)
-    logger.info('\n J total do dataset (com regularizacao): {:.5f}'.format(J))
+
+    if log_details:
+        logger.info('\n J total do dataset (com regularizacao): {:.5f}'.format(J))
+        
     return J
 
        
-@click.group()
-def main():
-    pass
-
-
-@main.command(name='backpropagation')
-@click_log.simple_verbosity_option(logger)
-@click.argument('network_filename')
-@click.argument('initial_weights_filename')
-@click.argument('data_set_filename')
-@click.option('--alpha', '-a', default=0.5, help='Weights Update Rate, is used to smooth the gradient')
-
-def backpropagation(network_filename, initial_weights_filename, data_set_filename, alpha):
+def backpropagation(network_filename, initial_weights_filename, data_set_filename,
+                    max_iterations, alpha):
 
     network = net.Network(network_filename, initial_weights_filename, logger)
     network.print()
@@ -67,9 +59,8 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
     numLayers = network.total_layers
     delta = [None] * numLayers
 
-    less_acceptable_difference = 0.0001 # how much?????
     last_regularized_cost = regularized_cost(network, data_set, numExamples, True)
-    max_iterations = 100
+    less_acceptable_difference = 0.0001 # how much?????
     stop = False
     iteration = 0
 
@@ -134,27 +125,24 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             network.layers[k].gradient_matrix.matrix =  (D_k.matrix + P_k.matrix) / numExamples
             logger.info('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
-        logger.info('\n 3. Atualizar pesos de cada camada com base nos gradientes')
+        #logger.info('\n 3. Atualizar pesos de cada camada com base nos gradientes')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
             network.layers[k].weight_matrix.matrix -= (layer_k.gradient_matrix.matrix * alpha)
-            logger.info('\n\tTheta{} = \n{}'.format(k+1, network.layers[k].weight_matrix.str_tabs(2)))
+            #logger.info('\n\tTheta{} = \n{}'.format(k+1, network.layers[k].weight_matrix.str_tabs(2)))
         
-        logger.info('\nCheck peformance to set stop:')
+        #logger.info('\nCheck peformance to set stop:')
 
         J = regularized_cost(network, data_set, numExamples)
         diff = last_regularized_cost - J
         stop = (diff <= less_acceptable_difference)
-        logger.info('diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
+        #logger.info('diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
         last_regularized_cost = J
         iteration += 1
 
-    logger.info('\nFim apos {} iteracoes.\n'.format(iteration))
+    if max_iterations > 1 :
+        logger.info('\nFim apos {} iteracoes.\n'.format(iteration))
+        
     return (network, data_set)
-
-
-if __name__ == "__main__":
-    main()
-
 
