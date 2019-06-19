@@ -3,10 +3,15 @@ import logging
 import math
 import random
 import time
+import datetime
 import click
 import click_log
 import json
 import pandas as pd
+import numpy as np
+import matrix as mt
+import network_classes as net
+import backpropagation as bp
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -297,6 +302,7 @@ def test_forest(test_data, forest):
 
 
 def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder):
+    
     attributes = dataset.columns[:-1].tolist()
     y_field = dataset.columns[-1]
     folds = generate_folds(dataset, k_fold)
@@ -305,20 +311,18 @@ def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder
     result_dict = get_empty_result_dict(possible_labels)
 
     for f_index, (train, test) in enumerate(folds):
-        logger.info('Processing fold {}'.format(f_index + 1))
-        logger.info('Training {} trees with {} instances'.format(
+        print('Processing fold {}'.format(f_index + 1))
+        print('Training {} trees with {} instances'.format(
             tree_amount, len(train)))
 
         forest = []
 
         for t_index in range(tree_amount):
-            logger.info('Getting dataset bootstrap')
+            print('Getting dataset bootstrap')
             bootstrap_train, _ = get_dataset_bootstrap(train)
 
-            logger.info('Generating tree {} with {} attributes'.format(
-                t_index + 1, attributes_amount))
-            tree = dt.generate_tree(
-                bootstrap_train, attributes, logger=logger, m=attributes_amount)
+            print('Generating tree {} with {} attributes'.format(t_index + 1, attributes_amount))
+            tree = dt.generate_tree(bootstrap_train, attributes, logger=logger, m=attributes_amount)
             forest.append(tree)
 
             if img_folder:
@@ -328,12 +332,11 @@ def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder
                 with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
                     tree_file.write(json_exporter.export(tree))
 
-        logger.info('Testing forest with {} instances'.format(len(test)))
+        print('Testing forest with {} instances'.format(len(test)))
         metrics = test_forest(test, forest)
-        logger.info('Testing finished')
-        logger.info('')
-        add_metrics_to_dict(result_dict, metrics,
-                            tree_amount, attributes_amount)
+        print('Testing finished')
+        print('')
+        add_metrics_to_dict(result_dict, metrics, tree_amount, attributes_amount)
 
         if logger.isEnabledFor(logging.INFO):
             describe_metrics(metrics)
@@ -345,7 +348,6 @@ def cross_validation(dataset, k_fold, tree_amount, attributes_amount, img_folder
 def main():
     pass
 
-
 @main.command(name='execute')
 @click_log.simple_verbosity_option(logger)
 @click.argument('filename')
@@ -355,24 +357,120 @@ def main():
 @click.option('--initial-neuron', '-in', default=1)
 @click.option('--last-layer', '-ll', default=3)
 @click.option('--last-neuron', '-ln', default=3)
+@click.option('--alpha', '-a', default=0.1, help='Weights Update Rate, is used to smooth the gradient')
+@click.option('--beta', '-b', default=0.9, help='Relevance of recent average direction (Method of Moment)')
+@click.option('--regularization', '-r', default=0.25)
 def execute(filename, separator, k_fold, initial_layer,
-            initial_neuron, last_layer, last_neuron):
+            initial_neuron, last_layer, last_neuron,
+            alpha, beta, regularization):
     """Execute a neural network cross validation"""
+
+    now = datetime.datetime.now()
+
+    test_folder = 'inputs/tests/{}'.format(now.strftime('%Y-%m-%d_%Hh%M'))
+
+    try:
+        os.makedirs(test_folder)
+    except:
+        pass
 
     dataset = pd.read_csv(filename, sep=separator)
     y_field = dataset.columns[-1]
     dataset[y_field] = dataset[y_field].astype(str)
 
-    print(dataset)
-    print(y_field)
+    print(dataset.sample(5))
 
+    # Parsing dataset
+
+    labels = dataset[y_field].unique().tolist()
+    attributes = dataset.columns[:-1].tolist()
+
+    data_txt = ''
+
+    for _, row in dataset.iterrows():
+        x_attr = []
+        for attr in attributes:
+            x_attr.append(str(row[attr]))
+        y_attr = len(labels) * ['0.0']
+        y_attr[labels.index(row[y_field])] = '1.0'
+
+        data_txt += '{}; {}\n'.format(', '.join(x_attr), ', '.join(y_attr))
+
+    with open('{}/dataset.txt'.format(test_folder), 'w') as dataset_file:
+        dataset_file.write(data_txt)
+
+    test = 1
+    result_final = {
+        'test': [],
+        'epoch': [],
+        'arch': [],
+        'loss': [],
+    }
     start = time.time()
     for layer_amount in range(initial_layer, last_layer + 1):
         for neuron_amount in range(initial_neuron, last_neuron + 1):
-
-            net_arch = layer_amount * [neuron_amount]
-
+            net_arch = [len(attributes)] + layer_amount * [neuron_amount] + [len(labels)]
             print(layer_amount, neuron_amount, net_arch)
+
+            net_folder = '{}/r-{}-arch-{}'.format(
+                test_folder, regularization, '-'.join((str(x) for x in net_arch)))
+
+            try:
+                os.makedirs(net_folder)
+            except:
+                pass
+
+            # Generating weights
+            weights = []
+            for i, n in enumerate(net_arch[:-1]):
+                l_weights = []
+                for x in range(net_arch[i+1]):
+                    # l_weights.append(', '.join(['{:.2f}'.format(random.uniform(-1, 1))
+                    #                             for x in range(n + 1)]))
+                    l_weights.append(', '.join(['{:.2f}'.format(x) for x in np.random.normal(size=n+1)]))
+                # print(l_weights)
+                weights.append('; '.join(l_weights))
+
+            weights_txt = '\n'.join(weights)
+            print('-'*50)
+            print('WEIGHTS')
+            print('-'*50)
+            print(weights_txt)
+
+            with open('{}/initial_weights.txt'.format(net_folder), 'w') as w_file:
+                w_file.write(weights_txt)
+            # Generating Architecture
+
+            arch_txt = '\n'.join(str(v) for v in [regularization] + net_arch)
+            # return
+
+            print('-'*50)
+            print('ARCH')
+            print('-'*50)
+            print(arch_txt)
+
+            with open('{}/network.txt'.format(net_folder), 'w') as a_file:
+                a_file.write(arch_txt)
+
+
+            print('training')
+            max_iterations=10
+            (network, training_result) = bp.backpropagation('{}/network.txt'.format(net_folder),
+                                                            '{}/initial_weights.txt'.format(net_folder),
+                                                            '{}/dataset.txt'.format(test_folder),
+                                                            max_iterations, alpha)
+
+            epochs_trained = len(training_result['loss'])
+            print(result_final)
+
+            result_final['loss'].extend(training_result['loss'])
+            result_final['epoch'].extend(list(range(1, epochs_trained + 1)))
+            result_final['arch'].extend([net_arch] * epochs_trained)
+            result_final['test'].extend([test] *  epochs_trained)
+            # training nn with:
+            # architecture, weights, alpha, j_threshold, max_iterations,
+            # batch_size, regularization_factor
+
             # r = cross_validation(
             #     dataset, k_fold, tree_amount, attributes_amount, img_folder, json_folder)
 
@@ -383,11 +481,21 @@ def execute(filename, separator, k_fold, initial_layer,
             #     result_frame = pd.DataFrame(test_results)
             #     result_frame.to_csv(test_result_output, index=False)
 
+            # getting result
+            test += 1
+            print()
+
     end = time.time()
 
-    logger.info('Multiple cross validation finished')
+    print('Cross validation finished')
     print()
     print('Time elapsed {} seconds'.format(end - start))
+
+    df_result_final = pd.DataFrame(result_final)
+    print(df_result_final)
+
+    df_result_final.to_csv('{}/result.csv'.format(test_folder), index=False)
+
 
 
 if __name__ == "__main__":

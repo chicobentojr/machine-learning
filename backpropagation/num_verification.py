@@ -64,15 +64,16 @@ def main():
 @click.argument('network_filename')
 @click.argument('initial_weights_filename')
 @click.argument('data_set_filename')
-@click.option('--alpha', '-a', default=0.5, help='Weights Update Rate, is used to smooth the gradient')
+@click.option('--alpha', '-a', default=0.1, help='Weights Update Rate, is used to smooth the gradient')
+@click.option('--beta', '-b', default=0.9, help='Relevance of recent average direction (Method of Moment)')
 @click.option('--epsilon', '-e', default=0.00001, help='Epsilon for gradient numeric verification')
 
 def gradient_verification(network_filename, initial_weights_filename, data_set_filename,
-                         alpha, epsilon):
+                         alpha, beta, epsilon):
 
     bp.logger = logger
     backPropMaxIterations = 1
-    (network, data_set) = bp.backpropagation(network_filename, initial_weights_filename, data_set_filename,
+    (network, training_result) = bp.backpropagation(network_filename, initial_weights_filename, data_set_filename,
                                              backPropMaxIterations, alpha)
 
     logger.info('\n\n------------------------------------------------------')

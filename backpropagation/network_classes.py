@@ -15,8 +15,10 @@ np.set_printoptions(precision=5)
 #-------------------------------------------------------
 # Auxiliar functions
 
-def gaussian(x):
-    return 1/(1 + math.exp(-x))
+def sigmoid(z):
+    if z < 0:
+        return 1 - 1/(1 + math.exp(z))
+    return  1/(1 + math.exp(-z))
 
 def format_list(array_list):
     return '{}'.format(np.array(array_list))
@@ -150,7 +152,7 @@ class Network:
             a.insert(0,1) # add bias
             z = theta.multiply_by_vector(a)
             layer = self.layers[l]
-            layer.neurons = list(map(gaussian, z))
+            layer.neurons = list(map(sigmoid, z))
 
             if log_details:
                 logger.info('\t\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))

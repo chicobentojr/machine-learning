@@ -158,5 +158,5 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         training_result_df = pd.DataFrame(training_result)
         print(training_result_df)
 
-    return (network, data_set)
+    return (network, training_result)
 
