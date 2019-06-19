@@ -49,7 +49,7 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
 
        
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                    max_iterations, alpha):
+                    max_iterations, alpha, beta=0.9):
 
     network = net.Network(network_filename, initial_weights_filename, logger)
     network.print()
@@ -132,7 +132,12 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
-            network.layers[k].weight_matrix.matrix -= (layer_k.gradient_matrix.matrix * alpha)
+            D_k = layer_k.gradient_matrix.matrix
+            meanD_k = layer_k.gradient_mean_matrix.matrix
+            meanD_k = (meanD_k * beta) + D_k
+            
+            Theta_k = layer_k.weight_matrix.matrix
+            Theta_k -= (meanD_k * alpha)
             #logger.debug('\n\tTheta{} = \n{}'.format(k+1, network.layers[k].weight_matrix.str_tabs(2)))
 
         #logger.debug('\nCheck peformance to set stop:')

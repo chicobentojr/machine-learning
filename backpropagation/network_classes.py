@@ -55,6 +55,7 @@ class Layer:
         self.neurons = np.zeros(num_neurons).tolist()
         self.weight_matrix = None
         self.gradient_matrix = None
+        self.gradient_mean_matrix = None
 
     def sum_square_weights(self):
         return self.weight_matrix.sum_square_weights_without_bias()
@@ -62,6 +63,11 @@ class Layer:
     def init_gradient_matrix(self):
         self.gradient_matrix = mt.Matrix()
         self.gradient_matrix.set(
+            self.weight_matrix.num_rows,
+            self.weight_matrix.num_cols)
+
+        self.gradient_mean_matrix = mt.Matrix()
+        self.gradient_mean_matrix.set(
             self.weight_matrix.num_rows,
             self.weight_matrix.num_cols)
 
