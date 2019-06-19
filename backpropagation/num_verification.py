@@ -15,8 +15,6 @@ click_log.basic_config(logger)
 np.set_printoptions(precision=5, suppress=True)
 
 
-
-
 def numeric_gradient(network_filename, initial_weights_filename, data_set_filename, epsilon):
     
     network = net.Network(network_filename, initial_weights_filename, logger)    
