@@ -11,6 +11,7 @@ click-log = "*"
 jupyter = "*"
 graphviz = "*"
 sklearn = "*"
+matplotlib = "*"
 
 [dev-packages]
 pylint = "*"
