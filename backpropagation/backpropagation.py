@@ -20,8 +20,7 @@ np.set_printoptions(precision=5)
 def regularized_cost(network, data_set, numExamples, log_details=False):
 
     if log_details:
-        logger.info(
-            '--------------------------------------------\nCalculando erro/custo J da rede')
+        logger.info('--------------------------------------------\nCalculando erro/custo J da rede')
 
     J = 0.0
 
@@ -38,24 +37,21 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
         J += Ji
 
         if log_details:
-            logger.info('\tSaida predita  para o exemplo {}: {}'.format(
-                i+1, net.format_list(f_xi)))
-            logger.info('\tSaida esperada para o exemplo {}: {}'.format(
-                i+1, net.format_list(yi)))
+            logger.info('\tSaida predita  para o exemplo {}: {}'.format(i+1, net.format_list(f_xi)))
+            logger.info('\tSaida esperada para o exemplo {}: {}'.format( i+1, net.format_list(yi)))
             logger.info('\tJ do exemplo {}: {:.5f}'.format(i+1, Ji))
 
     J /= numExamples
     J = network.regularize_cost(J, numExamples)
 
     if log_details:
-        logger.info(
-            '\n J total do dataset (com regularizacao): {:.5f}'.format(J))
+        logger.info('\n J total do dataset (com regularizacao): {:.5f}'.format(J))
 
     return J
 
 
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                    max_iterations, alpha, beta=0.9, less_acceptable_difference=0.0001,
+                    max_iterations=100, alpha=0.1, beta=0.9, less_acceptable_difference=0.0001,
                     momentum=True, validation_filename='', possible_labels=[], patience=50,
                     logger=logger):
 
@@ -135,8 +131,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             P_k = theta_k.copy()
             P_k.regularize(network.regularizationFactor)
             D_k = layer_k.gradient_matrix
-            network.layers[k].gradient_matrix.matrix = (
-                D_k.matrix + P_k.matrix) / numExamples
+            network.layers[k].gradient_matrix.matrix = (D_k.matrix + P_k.matrix) / numExamples
             logger.debug('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
         logger.debug( '\n 3. Atualizar pesos de cada camada com base nos gradientes')
@@ -161,7 +156,6 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         if diff <= less_acceptable_difference:
             patience -= 1
             stop = patience == 0
-        # stop = (diff <= less_acceptable_difference)
         logger.info( 'diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
 
         last_regularized_cost = J
