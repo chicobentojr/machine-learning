@@ -30,6 +30,7 @@ CONFUSION_MATRIX = 'confusion_matrix'
 FOLD = 'fold'
 EPOCH = 'epoch'
 ARCHITECTURE = 'architecture'
+REGULARIZATION = 'regularization'
 LOSS = 'loss'
 VAL_ACCURACY = 'val_acc'
 VAL_LOSS = 'val_loss'
@@ -188,6 +189,7 @@ def get_empty_result_dict(labels):
         FOLD: [],
         EPOCH: [],
         ARCHITECTURE: [],
+        REGULARIZATION: [],
         LOSS: [],
         ACCURACY: [],
         VAL_ACCURACY: [],
