@@ -179,16 +179,6 @@ class Network:
 
         arr = (yi * log_fi) - (_1_yi * log_1_fi)
         Ji = np.sum(arr)
-        '''
-        if log_details:#.
-            print('\t\tyi = {}'.format(yi))
-            print('\t\t-log_fi = {}'.format(log_fi))
-            print('\t\tyi * -log_fi = {}'.format(yi * log_fi))
-            print('\t\t(1-yi) = {}'.format(_1_yi))
-            print('\t\t(log(1-fi) = {}'.format(log_1_fi))
-            print('\t\t(1-yi) * log(1-fi) = {}'.format(_1_yi * log_1_fi))
-            print('\t\tJi = sum({})'.format(arr))
-        '''
         return (f_xi, Ji)
 
 
@@ -199,15 +189,7 @@ class Network:
         
         S *= self.regularizationFactor/(2*numExamples)
         return J+S
-
-    def regularize_costs(self, Jplus, Jminus, numExamples):
-        S = 0.0
-        for l in range(0, self.total_layers-1):
-            S += self.layers[l].sum_square_weights()
-        
-        S *= self.regularizationFactor/(2*numExamples)
-        return (Jplus+S, Jminus+S)
-        
+       
 
     def __str__(self):
         output = ''
