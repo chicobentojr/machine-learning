@@ -137,8 +137,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             D_k = layer_k.gradient_matrix.matrix
 			
 			is useMM:
-				meanD_k = layer_k.gradient_mean_matrix.matrix
-				meanD_k = (meanD_k * beta) + D_k
+				layer_k.gradient_mean_matrix.matrix = (layer_k.gradient_mean_matrix.matrix * beta) + D_k
 				layer_k.weight_matrix.matrix -= (meanD_k * alpha)
 			else:
 				layer_k.weight_matrix.matrix -= (D_k * alpha)
