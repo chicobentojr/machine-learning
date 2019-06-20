@@ -49,33 +49,31 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
 
        
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                    max_iterations, alpha, beta=0.9):
-					
-    useMM = True
+                    max_iterations, alpha, beta=0.9,less_acceptable_difference=0.0001, momentum=True, logger=logger):
 
     network = net.Network(network_filename, initial_weights_filename, logger)
-    network.print()
+    # network.print()
 
     data_set = net.DataSet(data_set_filename, network.num_entries)
-    data_set.print(logger)
+    # data_set.print(logger)
 
     numExamples = len(data_set.examples)
     numLayers = network.total_layers
     delta = [None] * numLayers
 
-    last_regularized_cost = regularized_cost(network, data_set, numExamples, True)
-    less_acceptable_difference = 0.0001 # how much?????
+    last_regularized_cost = regularized_cost(network, data_set, numExamples, False)
+    # less_acceptable_difference = 0.0001 # how much?????
     stop = False
     iteration = 0
 
-    training_result = {'loss': []}
+    training_result = {'loss': [], 'acc': []}
 
     logger.info('\n\n--------------------------------------------\nRodando backpropagation')
 
     while not stop and iteration < max_iterations:
 
-        logger.debug('\n***********************************************************')
-        logger.debug(' ITERACAO #{}'.format(iteration+1))
+        logger.info('\n***********************************************************')
+        logger.info(' ITERACAO #{}'.format(iteration+1))
         logger.debug('\n 1. Percorrer exemplos (x,y):')
 
         for i in range(0, numExamples):
@@ -130,13 +128,13 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             network.layers[k].gradient_matrix.matrix = (D_k.matrix + P_k.matrix) / numExamples
             logger.debug('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
-        #logger.debug('\n 3. Atualizar pesos de cada camada com base nos gradientes')
+        logger.debug('\n 3. Atualizar pesos de cada camada com base nos gradientes')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
             D_k = layer_k.gradient_matrix.matrix
 			
-            if useMM :
+            if momentum:
                 z_k = layer_k.gradient_mean_matrix
                 z_k.matrix = (z_k.matrix * beta) + D_k
                 layer_k.weight_matrix.matrix -= (z_k.matrix * alpha)
@@ -149,18 +147,38 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
         J = regularized_cost(network, data_set, numExamples)
         diff = last_regularized_cost - J
         stop = (diff <= less_acceptable_difference)
-        #logger.debug('diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
+        logger.info('diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
 
         last_regularized_cost = J
         training_result['loss'].append(J)
+
+        # Getting accuracy
+        right_predictions = 0
+        for i in range(numExamples):
+            example = data_set.examples[i]
+            xi = example.x
+            yi = example.y
+            f_xi = network.propagate_instance(xi)
+            
+            real_label = yi.index(1)
+            predict_label = f_xi.index(max(f_xi))
+            
+            if real_label == predict_label:
+                right_predictions += 1
+
+        accuracy = right_predictions / numExamples
+        training_result['acc'].append(accuracy)
+
+        logger.info('loss = {}\tacc = {}'.format(J, accuracy))
+
         iteration += 1
 
-    #end while
+    # end while
 
-    if max_iterations > 1 :
+    if max_iterations > 1:
         logger.debug('\nFim apos {} iteracoes.\n'.format(iteration))
         training_result_df = pd.DataFrame(training_result)
-        print(training_result_df)
+        # print(training_result_df)
 
     return (network, training_result)
 

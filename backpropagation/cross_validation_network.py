@@ -12,6 +12,7 @@ import numpy as np
 import matrix as mt
 import network_classes as net
 import backpropagation as bp
+from sklearn import preprocessing
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
@@ -355,14 +356,15 @@ def main():
 @click.option('--k-fold', '-k', default=5, help='your number of folds to cross validation')
 @click.option('--initial-layer', '-il', default=1)
 @click.option('--initial-neuron', '-in', default=1)
-@click.option('--last-layer', '-ll', default=3)
-@click.option('--last-neuron', '-ln', default=3)
+@click.option('--last-layer', '-ll', default=1)
+@click.option('--last-neuron', '-ln', default=1)
 @click.option('--alpha', '-a', default=0.1, help='Weights Update Rate, is used to smooth the gradient')
 @click.option('--beta', '-b', default=0.9, help='Relevance of recent average direction (Method of Moment)')
 @click.option('--regularization', '-r', default=0.25)
+@click.option('--max-iterations', '-m', default=10)
 def execute(filename, separator, k_fold, initial_layer,
             initial_neuron, last_layer, last_neuron,
-            alpha, beta, regularization):
+            alpha, beta, regularization, max_iterations):
     """Execute a neural network cross validation"""
 
     now = datetime.datetime.now()
@@ -375,13 +377,18 @@ def execute(filename, separator, k_fold, initial_layer,
         pass
 
     dataset = pd.read_csv(filename, sep=separator)
-    y_field = dataset.columns[-1]
-    dataset[y_field] = dataset[y_field].astype(str)
+    # dataset[y_field] = dataset[y_field].astype(str)
 
-    print(dataset.sample(5))
+    # print(dataset.sample(5))
+
+    # Normalize dataset
+    x = dataset.values
+    min_max_scaler = preprocessing.MinMaxScaler()
+    x_scaled = min_max_scaler.fit_transform(x)
+    dataset = pd.DataFrame(x_scaled)
 
     # Parsing dataset
-
+    y_field = dataset.columns[-1]
     labels = dataset[y_field].unique().tolist()
     attributes = dataset.columns[:-1].tolist()
 
@@ -403,8 +410,9 @@ def execute(filename, separator, k_fold, initial_layer,
     result_final = {
         'test': [],
         'epoch': [],
-        'arch': [],
+        'architecture': [],
         'loss': [],
+        'acc': [],
     }
     start = time.time()
     for layer_amount in range(initial_layer, last_layer + 1):
@@ -412,7 +420,7 @@ def execute(filename, separator, k_fold, initial_layer,
             net_arch = [len(attributes)] + layer_amount * [neuron_amount] + [len(labels)]
             print(layer_amount, neuron_amount, net_arch)
 
-            net_folder = '{}/r-{}-arch-{}'.format(
+            net_folder = '{}/r-{}-architecture-{}'.format(
                 test_folder, regularization, '-'.join((str(x) for x in net_arch)))
 
             try:
@@ -445,28 +453,38 @@ def execute(filename, separator, k_fold, initial_layer,
             # return
 
             print('-'*50)
-            print('ARCH')
+            print('ARCHITECTURE')
             print('-'*50)
             print(arch_txt)
 
             with open('{}/network.txt'.format(net_folder), 'w') as a_file:
                 a_file.write(arch_txt)
 
-
-            print('training')
-            max_iterations=10
-            (network, training_result) = bp.backpropagation('{}/network.txt'.format(net_folder),
+            # training nn with:
+            # architecture, weights, alpha, j_threshold, max_iterations,
+            # batch_size, regularization_factor
+            network, training_result = bp.backpropagation('{}/network.txt'.format(net_folder),
                                                             '{}/initial_weights.txt'.format(net_folder),
                                                             '{}/dataset.txt'.format(test_folder),
-                                                            max_iterations, alpha)
+                                                            max_iterations, alpha, logger=logger,
+                                                            less_acceptable_difference=0.000001)
+
 
             epochs_trained = len(training_result['loss'])
-            print(result_final)
 
-            result_final['loss'].extend(training_result['loss'])
-            result_final['epoch'].extend(list(range(1, epochs_trained + 1)))
-            result_final['arch'].extend([net_arch] * epochs_trained)
+            # print(result_final)
+            
+            # result csv
+            # test epoch arch loss acc val_acc val_loss
+            # prec_macro, preci_micro, rec_macro, rec_micro,
+            # labels_M_vp,labels_M_fp,labels_M_fn,labels_M_precision,labels_M_recall,labels_M_f_measure
+
             result_final['test'].extend([test] *  epochs_trained)
+            result_final['epoch'].extend(list(range(1, epochs_trained + 1)))
+            result_final['architecture'].extend([net_arch] * epochs_trained)
+            result_final['loss'].extend(training_result['loss'])
+            result_final['acc'].extend(training_result['acc'])
+
             # training nn with:
             # architecture, weights, alpha, j_threshold, max_iterations,
             # batch_size, regularization_factor

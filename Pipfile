@@ -10,6 +10,7 @@ click = "*"
 click-log = "*"
 jupyter = "*"
 graphviz = "*"
+sklearn = "*"
 
 [dev-packages]
 pylint = "*"
