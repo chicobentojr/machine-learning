@@ -10,6 +10,8 @@ import network_classes as net
 import matrix as mt
 import pandas as pd
 
+import cross_validation_network as cvn
+
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 np.set_printoptions(precision=5)
@@ -18,7 +20,8 @@ np.set_printoptions(precision=5)
 def regularized_cost(network, data_set, numExamples, log_details=False):
 
     if log_details:
-        logger.info('--------------------------------------------\nCalculando erro/custo J da rede')
+        logger.info(
+            '--------------------------------------------\nCalculando erro/custo J da rede')
 
     J = 0.0
 
@@ -35,49 +38,59 @@ def regularized_cost(network, data_set, numExamples, log_details=False):
         J += Ji
 
         if log_details:
-            logger.info('\tSaida predita  para o exemplo {}: {}'.format(i+1, net.format_list(f_xi)))
-            logger.info('\tSaida esperada para o exemplo {}: {}'.format(i+1, net.format_list(yi)))
+            logger.info('\tSaida predita  para o exemplo {}: {}'.format(
+                i+1, net.format_list(f_xi)))
+            logger.info('\tSaida esperada para o exemplo {}: {}'.format(
+                i+1, net.format_list(yi)))
             logger.info('\tJ do exemplo {}: {:.5f}'.format(i+1, Ji))
 
     J /= numExamples
     J = network.regularize_cost(J, numExamples)
 
     if log_details:
-        logger.info('\n J total do dataset (com regularizacao): {:.5f}'.format(J))
-        
+        logger.info(
+            '\n J total do dataset (com regularizacao): {:.5f}'.format(J))
+
     return J
 
-       
+
 def backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                    max_iterations, alpha, beta=0.9,less_acceptable_difference=0.0001, momentum=True, logger=logger):
+                    max_iterations, alpha, beta=0.9, less_acceptable_difference=0.0001,
+                    momentum=True, validation_filename='', possible_labels=[], patience=50,
+                    logger=logger):
 
     network = net.Network(network_filename, initial_weights_filename, logger)
     # network.print()
 
     data_set = net.DataSet(data_set_filename, network.num_entries)
     # data_set.print(logger)
+    validation_set = net.DataSet(validation_filename, network.num_entries)
 
     numExamples = len(data_set.examples)
     numLayers = network.total_layers
     delta = [None] * numLayers
 
-    last_regularized_cost = regularized_cost(network, data_set, numExamples, False)
+    last_regularized_cost = regularized_cost(
+        network, data_set, numExamples, False)
     # less_acceptable_difference = 0.0001 # how much?????
     stop = False
     iteration = 0
 
-    training_result = {'loss': [], 'acc': []}
+    training_result = cvn.get_empty_result_dict(possible_labels)
 
-    logger.info('\n\n--------------------------------------------\nRodando backpropagation')
+    logger.info(
+        '\n\n--------------------------------------------\nRodando backpropagation')
 
     while not stop and iteration < max_iterations:
 
-        logger.info('\n***********************************************************')
+        logger.info(
+            '\n***********************************************************')
         logger.info(' ITERACAO #{}'.format(iteration+1))
         logger.debug('\n 1. Percorrer exemplos (x,y):')
 
         for i in range(0, numExamples):
-            logger.debug('\n Calculando gradientes com base no exemplo #{}'.format(i+1))
+            logger.debug(
+                '\n Calculando gradientes com base no exemplo #{}'.format(i+1))
             logger.debug('\n 1.1. Propagacao pela rede')
 
             example = data_set.examples[i]
@@ -86,7 +99,8 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             f_xi = network.propagate_instance(xi)
 
             delta[-1] = np.subtract(f_xi, yi)
-            logger.debug('\n 1.2. Delta da camada de saida\n\tdelta{} = {}'.format(numLayers, delta[-1]))
+            logger.debug('\n 1.2. Delta da camada de saida\n\tdelta{} = {}'.format(
+                numLayers, delta[-1]))
             logger.debug('\n 1.3. Deltas das camadas ocultas')
 
             for k in range(numLayers-2, 1-1, -1):
@@ -103,7 +117,8 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
                 logger.debug('\tdelta{} = {}'.format(k+1, delta[k]))
 
-            logger.debug('\n 1.4. Gradientes dos pesos de cada camada com base nos exemplo atual')
+            logger.debug(
+                '\n 1.4. Gradientes dos pesos de cada camada com base nos exemplo atual')
 
             for k in range(numLayers-2, 0-1, -1):
                 layer_k = network.layers[k]
@@ -112,12 +127,14 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
                     np.matrix(delta[k+1]).transpose(),
                     np.matrix(a_k))
                 network.layers[k].gradient_matrix.matrix += gradient
-                logger.debug('\n\tGradiente de Theta{} = \n{}'.format(k+1, mt.str_tabs(gradient, 2)))
+                logger.debug('\n\tGradiente de Theta{} = \n{}'.format(
+                    k+1, mt.str_tabs(gradient, 2)))
 
         # end examples
         logger.debug('\n Dataset completo processado.')
 
-        logger.debug('\n\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
+        logger.debug(
+            '\n\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
@@ -125,15 +142,18 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             P_k = theta_k.copy()
             P_k.regularize(network.regularizationFactor)
             D_k = layer_k.gradient_matrix
-            network.layers[k].gradient_matrix.matrix = (D_k.matrix + P_k.matrix) / numExamples
-            logger.debug('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
+            network.layers[k].gradient_matrix.matrix = (
+                D_k.matrix + P_k.matrix) / numExamples
+            logger.debug('\n\tGradiente de Theta{} = \n{}'.format(
+                k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
-        logger.debug('\n 3. Atualizar pesos de cada camada com base nos gradientes')
+        logger.debug(
+            '\n 3. Atualizar pesos de cada camada com base nos gradientes')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
             D_k = layer_k.gradient_matrix.matrix
-			
+
             if momentum:
                 z_k = layer_k.gradient_mean_matrix
                 z_k.matrix = (z_k.matrix * beta) + D_k
@@ -146,30 +166,81 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
         J = regularized_cost(network, data_set, numExamples)
         diff = last_regularized_cost - J
-        stop = (diff <= less_acceptable_difference)
-        logger.info('diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
+
+        if diff <= less_acceptable_difference:
+            patience -= 1
+            stop = patience == 0
+        # stop = (diff <= less_acceptable_difference)
+        logger.info(
+            'diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
 
         last_regularized_cost = J
-        training_result['loss'].append(J)
 
-        # Getting accuracy
+        # Getting training metrics
+        training_result[cvn.LOSS].append(J)
         right_predictions = 0
         for i in range(numExamples):
             example = data_set.examples[i]
             xi = example.x
             yi = example.y
             f_xi = network.propagate_instance(xi)
-            
+
             real_label = yi.index(1)
             predict_label = f_xi.index(max(f_xi))
-            
+
             if real_label == predict_label:
                 right_predictions += 1
 
         accuracy = right_predictions / numExamples
-        training_result['acc'].append(accuracy)
+        training_result[cvn.ACCURACY].append(accuracy)
+
+        if validation_filename:
+            # Getting validation metrics
+            # test epoch arch loss acc val_acc val_loss
+            # prec_macro, preci_micro, rec_macro, rec_micro,
+            # labels_M_vp,labels_M_fp,labels_M_fn,labels_M_precision,labels_M_recall,labels_M_f_measure
+            validation_examples = len(validation_set.examples)
+            val_J = regularized_cost(
+                network, validation_set, validation_examples)
+
+            val_right_predictions = 0
+
+            matrix_dict = {}
+            for x_label in possible_labels:
+                for y_label in possible_labels:
+                    matrix_dict['{}-{}'.format(x_label, y_label)] = 0
+
+            for i in range(validation_examples):
+                example = validation_set.examples[i]
+                xi = example.x
+                yi = example.y
+                f_xi = network.propagate_instance(xi)
+
+                real_label = possible_labels[yi.index(1)]
+                predict_label = possible_labels[f_xi.index(max(f_xi))]
+
+                matrix_dict['{}-{}'.format(real_label, predict_label)] += 1
+
+                if real_label == predict_label:
+                    val_right_predictions += 1
+
+            val_acc = val_right_predictions / validation_examples
+
+            training_result[cvn.VAL_LOSS].append(val_J)
+            training_result[cvn.VAL_ACCURACY].append(val_acc)
+
+            matrix = cvn.get_confusion_matrix_from_dict(matrix_dict)
+            metrics = cvn.get_evaluation_metrics(matrix, possible_labels)
+
+            cvn.add_metrics_to_dict(training_result, metrics)
+        else:
+            for k in training_result.keys():
+                if k not in [cvn.ACCURACY, cvn.LOSS]:
+                    training_result[k].append(None)
 
         logger.info('loss = {}\tacc = {}'.format(J, accuracy))
+        if validation_filename:
+            logger.info('val_loss = {}\tval_acc = {}'.format(val_J, val_acc))
 
         iteration += 1
 
@@ -177,8 +248,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
     if max_iterations > 1:
         logger.debug('\nFim apos {} iteracoes.\n'.format(iteration))
-        training_result_df = pd.DataFrame(training_result)
+        # training_result_df = pd.DataFrame(training_result)
         # print(training_result_df)
 
     return (network, training_result)
-
