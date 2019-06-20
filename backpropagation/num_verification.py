@@ -23,31 +23,30 @@ def numeric_gradient(network_filename, initial_weights_filename, data_set_filena
     numExamples = len(data_set.examples)
     numLayers = network.total_layers
 
-    numericGradientMatrices = [None] * numLayers
+    numericGradientMatrices = [None] * numLayers  #output
 
     for k in range(0, numLayers-1):
         layer_k = network.layers[k]
         theta_k = layer_k.weight_matrix
         theta_k_m = theta_k.matrix
-        numericGradientMatrices[k] = np.matrix(np.zeros(shape=(theta_k.num_rows, theta_k.num_cols)))
+		rows = theta_k.num_rows
+		cols = theta_k.num_cols
+        numericGradientMatrices[k] = np.matrix(np.zeros(shape=(rows,cols)))
 
-        for r in range(0, theta_k.num_rows):
-            for c in range(0, theta_k.num_cols):
-                original_value = theta_k_m[r,c]
-                
-                Jplus = 0.0
-                Jminus = 0.0
+        for j in range(0, rows):
+            for i in range(0, cols):
+                original_value = theta_k_m[j,i] #save to recover
 
-                theta_k_m[r,c] += epsilon
+                theta_k_m[j,i] += epsilon
                 Jplus = bp.regularized_cost(network, data_set, numExamples)
 
-                theta_k_m[r,c] = original_value - epsilon
+                theta_k_m[j,i] = original_value - epsilon
                 Jminus = bp.regularized_cost(network, data_set, numExamples)
 
-                theta_k_m[r,c] = original_value
+                theta_k_m[j,i] = original_value #recover
 
-                numericGradientMatrices[k][r,c] = (Jplus - Jminus)/(2*epsilon)
-        #end for r,c
+                numericGradientMatrices[k][j,i] = (Jplus - Jminus)/(2*epsilon)
+        #end for j,i
                     
         logger.info('\n\tGradiente numerico de Theta{} = \n{}'.format(k+1, mt.str_tabs(numericGradientMatrices[k],2)))  
     # end for layers
@@ -71,10 +70,10 @@ def main():
 def gradient_verification(network_filename, initial_weights_filename, data_set_filename,
                          alpha, beta, epsilon):
 
-    bp.logger = logger
-    backPropMaxIterations = 1
-    (network, training_result) = bp.backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                                                    backPropMaxIterations, alpha, beta)
+    #bp.logger = logger
+    (network, training_result) = bp.backpropagation(
+			network_filename, initial_weights_filename, data_set_filename,
+			max_iterations=1, alpha=alpha, beta=beta, logger=logger)
 
     logger.info('\n\n------------------------------------------------------')
     logger.info(' Rodando verificacao numerica de gradientes (epsilon={})'.format(epsilon))
@@ -88,14 +87,11 @@ def gradient_verification(network_filename, initial_weights_filename, data_set_f
 
     for k in range(0, numLayers-1):
         layer_k = network.layers[k]
-        Grad_k = layer_k.gradient_matrix
-        Grad_k_m = Grad_k.matrix
-        R = Grad_k.num_rows
-        C = Grad_k.num_cols
-
-        Diff = mt.numpy_to_Matrix(Grad_k_m - numericGradientMatrices[k])
-        total_error = Diff.sum_square_elements()/(R*C)
-
+        D_k = layer_k.gradient_matrix
+        D_k_m = D_k.matrix
+        Diff = mt.numpy_to_Matrix(D_k_m - numericGradientMatrices[k]) #class Matrix
+		numElems = D_k.num_rows * D_k.num_cols
+        total_error = Diff.sum_square_elements()/numElems
         logger.info('\t\tTheta{} = {:.6f} ({})'.format(k+1, total_error, total_error))  
 
     # end

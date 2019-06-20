@@ -143,16 +143,16 @@ class Network:
 
 
     def propagate_instance(self, x, log_details=False):
-        self.layers[0].neurons = x[:]  # set a1 = x
+        self.layers[0].neurons = x[:]  # 1. set a_l=1 = x
 
         for l in range(1, self.total_layers):
             prev_layer = self.layers[l-1]
-            theta = prev_layer.weight_matrix
-            a = prev_layer.neurons
-            a.insert(0,1) # add bias
-            z = theta.multiply_by_vector(a)
+            theta = prev_layer.weight_matrix	# theta_l-1
+            a = prev_layer.neurons					# a_l-1
+            a.insert(0,1) 									# 2. add bias in a_l-1
+            z = theta.multiply_by_vector(a)		# 4. z_l
             layer = self.layers[l]
-            layer.neurons = list(map(sigmoid, z))
+            layer.neurons = list(map(sigmoid, z))	# 5. a_l = g(z_l)
 
             if log_details:
                 logger.info('\t\ta{} = {}\n'.format(l, format_list(self.layers[l-1].neurons)))
@@ -162,7 +162,7 @@ class Network:
         if log_details:
             logger.info('\t\ta{} = {}\n'.format(l+1, format_list(self.layers[l].neurons)))
 
-        return self.layers[-1].neurons
+        return self.layers[-1].neurons 	# 6. a_l=L
 
     def propagate_instance_and_get_cost(self, xi, yi, log_details=False):
         f_xi = self.propagate_instance(xi, log_details)
