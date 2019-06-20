@@ -137,8 +137,9 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             D_k = layer_k.gradient_matrix.matrix
 			
             if useMM :
-                layer_k.gradient_mean_matrix.matrix = (layer_k.gradient_mean_matrix.matrix * beta) + D_k
-                layer_k.weight_matrix.matrix -= (layer_k.gradient_mean_matrix.matrix * alpha)
+                z_k = layer_k.gradient_mean_matrix
+                z_k.matrix = (z_k.matrix * beta) + D_k
+                layer_k.weight_matrix.matrix -= (z_k.matrix * alpha)
             else:
                 layer_k.weight_matrix.matrix -= (D_k * alpha)
             #logger.debug('\n\tTheta{} = \n{}'.format(k+1, network.layers[k].weight_matrix.str_tabs(2)))
