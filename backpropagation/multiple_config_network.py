@@ -371,8 +371,9 @@ def main():
 @click.option('--max-iterations', '-m', default=10)
 @click.option('--patience', '-p', default=50)
 @click.option('--architectures', '-arc', multiple=True)
+@click.option('--momentum/--no-momentum', default=True)
 def execute(filename, separator, k_fold, alpha, beta, regularizations, max_iterations,
-            patience, architectures):
+            patience, architectures, momentum):
     """Execute multiple neural networks cross validations"""
 
     data_file = filename.split('/')[-1].split('.')[0]
@@ -437,7 +438,7 @@ def execute(filename, separator, k_fold, alpha, beta, regularizations, max_itera
 
             r = cross_validation(dataset, k_fold, net_folder, original_labels, max_iterations, alpha,
                                  beta=beta, less_acceptable_difference=0.000001,
-                                 patience=patience, logger=logger)
+                                 momentum=momentum, patience=patience, logger=logger)
             for k in r.keys():
                 test_results[k].extend(r[k])
 
