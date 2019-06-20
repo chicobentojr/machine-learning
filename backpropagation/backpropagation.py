@@ -78,19 +78,16 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
     training_result = cvn.get_empty_result_dict(possible_labels)
 
-    logger.info(
-        '\n\n--------------------------------------------\nRodando backpropagation')
+    logger.info('\n\n--------------------------------------------\nRodando backpropagation')
 
     while not stop and iteration < max_iterations:
 
-        logger.info(
-            '\n***********************************************************')
+        logger.info('\n***********************************************************')
         logger.info(' ITERACAO #{}'.format(iteration+1))
         logger.debug('\n 1. Percorrer exemplos (x,y):')
 
         for i in range(0, numExamples):
-            logger.debug(
-                '\n Calculando gradientes com base no exemplo #{}'.format(i+1))
+            logger.debug('\n Calculando gradientes com base no exemplo #{}'.format(i+1))
             logger.debug('\n 1.1. Propagacao pela rede')
 
             example = data_set.examples[i]
@@ -99,8 +96,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             f_xi = network.propagate_instance(xi)
 
             delta[-1] = np.subtract(f_xi, yi)
-            logger.debug('\n 1.2. Delta da camada de saida\n\tdelta{} = {}'.format(
-                numLayers, delta[-1]))
+            logger.debug('\n 1.2. Delta da camada de saida\n\tdelta{} = {}'.format(numLayers, delta[-1]))
             logger.debug('\n 1.3. Deltas das camadas ocultas')
 
             for k in range(numLayers-2, 1-1, -1):
@@ -117,8 +113,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
 
                 logger.debug('\tdelta{} = {}'.format(k+1, delta[k]))
 
-            logger.debug(
-                '\n 1.4. Gradientes dos pesos de cada camada com base nos exemplo atual')
+            logger.debug('\n 1.4. Gradientes dos pesos de cada camada com base nos exemplo atual')
 
             for k in range(numLayers-2, 0-1, -1):
                 layer_k = network.layers[k]
@@ -127,14 +122,12 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
                     np.matrix(delta[k+1]).transpose(),
                     np.matrix(a_k))
                 network.layers[k].gradient_matrix.matrix += gradient
-                logger.debug('\n\tGradiente de Theta{} = \n{}'.format(
-                    k+1, mt.str_tabs(gradient, 2)))
+                logger.debug('\n\tGradiente de Theta{} = \n{}'.format( k+1, mt.str_tabs(gradient, 2)))
 
         # end examples
         logger.debug('\n Dataset completo processado.')
 
-        logger.debug(
-            '\n\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
+        logger.debug('\n\n 2. Gradientes finais (regularizados) para os pesos de cada camada')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
@@ -144,11 +137,9 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             D_k = layer_k.gradient_matrix
             network.layers[k].gradient_matrix.matrix = (
                 D_k.matrix + P_k.matrix) / numExamples
-            logger.debug('\n\tGradiente de Theta{} = \n{}'.format(
-                k+1, network.layers[k].gradient_matrix.str_tabs(2)))
+            logger.debug('\n\tGradiente de Theta{} = \n{}'.format(k+1, network.layers[k].gradient_matrix.str_tabs(2)))
 
-        logger.debug(
-            '\n 3. Atualizar pesos de cada camada com base nos gradientes')
+        logger.debug( '\n 3. Atualizar pesos de cada camada com base nos gradientes')
 
         for k in range(0, numLayers-1):
             layer_k = network.layers[k]
@@ -171,8 +162,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             patience -= 1
             stop = patience == 0
         # stop = (diff <= less_acceptable_difference)
-        logger.info(
-            'diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
+        logger.info( 'diff = last_cost({}) - actual_cost({}) = {}'.format(last_regularized_cost, J, diff))
 
         last_regularized_cost = J
 
@@ -200,8 +190,7 @@ def backpropagation(network_filename, initial_weights_filename, data_set_filenam
             # prec_macro, preci_micro, rec_macro, rec_micro,
             # labels_M_vp,labels_M_fp,labels_M_fn,labels_M_precision,labels_M_recall,labels_M_f_measure
             validation_examples = len(validation_set.examples)
-            val_J = regularized_cost(
-                network, validation_set, validation_examples)
+            val_J = regularized_cost(network, validation_set, validation_examples)
 
             val_right_predictions = 0
 
