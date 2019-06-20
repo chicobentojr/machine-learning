@@ -19,6 +19,10 @@ class Matrix:
         self.num_rows = num_rows
         self.num_cols = num_cols
 
+    def set_from_numpy(self, numpy_matrix):
+        self.matrix = numpy_matrix.copy()
+        (self.num_rows, self.num_cols) = numpy_matrix.shape
+
     def copy(self):
         return Matrix(self.matrix.tolist())
 
@@ -36,6 +40,11 @@ class Matrix:
 
         return np.matmul(self.matrix, vector).tolist()[0]        
 
+
+    def sum_square_elements(self):
+        func = np.vectorize(lambda x: x ** 2)
+        mat = func(self.matrix.copy())
+        return np.sum(mat)
 
     def sum_square_weights_without_bias(self):
         func = np.vectorize(lambda x: x ** 2)
@@ -59,3 +68,10 @@ class Matrix:
     def print(self, name=''):
         print('\nMatrix ({} x {}):\n{} =\n{}\n'.format(self.num_rows, self.num_cols, name, self.matrix))
     
+#--------------------------------------
+
+def numpy_to_Matrix(numpy_matrix):
+    M = Matrix()
+    M.set_from_numpy(numpy_matrix)
+    return M
+

@@ -29,7 +29,7 @@ def numeric_gradient(network_filename, initial_weights_filename, data_set_filena
         layer_k = network.layers[k]
         theta_k = layer_k.weight_matrix
         theta_k_m = theta_k.matrix
-        numericGradientMatrices[k] = np.zeros(shape=(theta_k.num_rows, theta_k.num_cols))
+        numericGradientMatrices[k] = np.matrix(np.zeros(shape=(theta_k.num_rows, theta_k.num_cols)))
 
         for r in range(0, theta_k.num_rows):
             for c in range(0, theta_k.num_cols):
@@ -66,7 +66,7 @@ def main():
 @click.argument('data_set_filename')
 @click.option('--alpha', '-a', default=0.1, help='Weights Update Rate, is used to smooth the gradient')
 @click.option('--beta', '-b', default=0.9, help='Relevance of recent average direction (Method of Moment)')
-@click.option('--epsilon', '-e', default=0.00001, help='Epsilon for gradient numeric verification')
+@click.option('--epsilon', '-e', default=0.000001, help='Epsilon for gradient numeric verification')
 
 def gradient_verification(network_filename, initial_weights_filename, data_set_filename,
                          alpha, beta, epsilon):
@@ -74,7 +74,7 @@ def gradient_verification(network_filename, initial_weights_filename, data_set_f
     bp.logger = logger
     backPropMaxIterations = 1
     (network, training_result) = bp.backpropagation(network_filename, initial_weights_filename, data_set_filename,
-                                             backPropMaxIterations, alpha)
+                                                    backPropMaxIterations, alpha, beta)
 
     logger.info('\n\n------------------------------------------------------')
     logger.info(' Rodando verificacao numerica de gradientes (epsilon={})'.format(epsilon))
@@ -82,29 +82,22 @@ def gradient_verification(network_filename, initial_weights_filename, data_set_f
     numericGradientMatrices = numeric_gradient(network_filename, initial_weights_filename, data_set_filename, epsilon)
 
     logger.info('\n\n------------------------------------------------------')
+    logger.info('\tErro (medio quadratico) entre gradiente via backprop e gradiente numerico para:')
     
     numLayers = network.total_layers
 
     for k in range(0, numLayers-1):
         layer_k = network.layers[k]
-        Theta_k = layer_k.weight_matrix
-        Theta_k_m = Theta_k.matrix
-        
-        numericGradientMatrix = numericGradientMatrices[k]
+        Grad_k = layer_k.gradient_matrix
+        Grad_k_m = Grad_k.matrix
+        R = Grad_k.num_rows
+        C = Grad_k.num_cols
 
-        total_error = 0.0
+        Diff = mt.numpy_to_Matrix(Grad_k_m - numericGradientMatrices[k])
+        total_error = Diff.sum_square_elements()/(R*C)
 
-        for r in range(0, Theta_k.num_rows):
-            for c in range(0, Theta_k.num_cols):
-                theta_ji_back = Theta_k_m[r,c]
-                theta_ji_num = numericGradientMatrix[r,c]
-                diff = theta_ji_back - theta_ji_num
-                total_error += diff * diff
-        #end for r,c
+        logger.info('\t\tTheta{} = {:.6f} ({})'.format(k+1, total_error, total_error))  
 
-        total_error /= (Theta_k.num_rows * Theta_k.num_cols)
-
-        logger.info('\tErro entre gradiente via backprop e gradiente numerico para Theta{} = {}'.format(k+1, total_error))  
     # end
 
 if __name__ == "__main__":
