@@ -326,7 +326,7 @@ def cross_validation(dataset, k_fold, test_folder, original_labels, max_iteratio
                      beta=0.9, less_acceptable_difference=0.0001, momentum=True, patience=50, logger=logger):
 
     y_field = dataset.columns[-1]
-    # possible_labels = dataset[y_field].unique().tolist()
+
     possible_labels = original_labels
 
     attributes = dataset.columns[:-1].tolist()
@@ -334,7 +334,6 @@ def cross_validation(dataset, k_fold, test_folder, original_labels, max_iteratio
     result_dict = get_empty_result_dict(possible_labels)
 
     # generating folds
-
     folds = generate_folds(dataset, k_fold, test_folder)
 
     net_file = '{}/network.txt'.format(test_folder)
@@ -344,36 +343,12 @@ def cross_validation(dataset, k_fold, test_folder, original_labels, max_iteratio
         print('Processing fold {}'.format(f_index + 1))
         print('Training network')
 
-        network, training_result = bp.backpropagation(net_file, weights_file, train_file,
-                                                      max_iterations, alpha,
-                                                      less_acceptable_difference=less_acceptable_difference,
-                                                      validation_filename=test_file, possible_labels=possible_labels,
-                                                      patience=patience, logger=logger)
-        # forest = []
-
-
-        # for t_index in range(tree_amount):
-        #     print('Getting dataset bootstrap')
-        #     bootstrap_train, _ = get_dataset_bootstrap(train_file)
-
-        #     print('Generating tree {} with {} attributes'.format(
-        #         t_index + 1, attributes_amount))
-        #     tree = dt.generate_tree(
-        #         bootstrap_train, attributes, logger=logger, m=attributes_amount)
-        #     forest.append(tree)
-
-        #     if img_folder:
-        #         dt.export_dot(tree).to_picture(
-        #             '{}/forest-{}-tree-{}.png'.format(img_folder.rstrip('/'), f_index + 1, t_index + 1))
-        #     if json_folder:
-        #         with open('{}/forest-{}-tree-{}.json'.format(json_folder.rstrip('/'), f_index + 1, t_index + 1), 'w') as tree_file:
-        #             tree_file.write(json_exporter.export(tree))
-
-        # print('Testing forest with {} instances'.format(len(test_file)))
-        # metrics = test_forest(test_file, forest)
-        # print('Testing finished')
-        # print('')
-        # add_metrics_to_dict(result_dict, metrics)
+        training_result = bp.backpropagation(net_file, weights_file, train_file,
+                                             max_iterations, alpha,
+                                             less_acceptable_difference=less_acceptable_difference,
+                                             validation_filename=test_file, possible_labels=possible_labels,
+                                             patience=patience, logger=logger)
+  
         epochs_trained = len(training_result[LOSS])
 
         training_result[FOLD].extend([f_index + 1] * epochs_trained)
@@ -381,9 +356,6 @@ def cross_validation(dataset, k_fold, test_folder, original_labels, max_iteratio
 
         for k in result_dict.keys():
             result_dict[k].extend(training_result[k])
-
-        # if logger.isEnabledFor(logging.INFO):
-        #     describe_metrics(metrics)
 
     return result_dict
 
@@ -451,35 +423,14 @@ def execute(filename, separator, k_fold, initial_layer,
     dataset = pd.read_csv(filename, sep=separator)
     original_labels = dataset[dataset.columns[-1]].unique().tolist()
     attributes = dataset.columns[:-1].tolist()
-    # dataset[y_field] = dataset[y_field].astype(str)
-
-    # print(dataset.sample(5))
 
     # Normalize dataset
     dataset = normalize_dataframe(dataset)
 
     # Parsing dataset
     parse_dataframe_to_txt(dataset, '{}/dataset.txt'.format(test_folder))
-    # y_field = dataset.columns[-1]
-    # labels = dataset[y_field].unique().tolist()
-    # attributes = dataset.columns[:-1].tolist()
-
-    # data_txt = ''
-
-    # for _, row in dataset.iterrows():
-    #     x_attr = []
-    #     for attr in attributes:
-    #         x_attr.append(str(row[attr]))
-    #     y_attr = len(labels) * ['0.0']
-    #     y_attr[labels.index(row[y_field])] = '1.0'
-
-    #     data_txt += '{}; {}\n'.format(', '.join(x_attr), ', '.join(y_attr))
-
-    # with open('{}/dataset.txt'.format(test_folder), 'w') as dataset_file:
-    #     dataset_file.write(data_txt)
 
     test = 1
-
     test_results = get_empty_result_dict(original_labels)
 
     start = time.time()
@@ -503,97 +454,34 @@ def execute(filename, separator, k_fold, initial_layer,
             for i, n in enumerate(net_arch[:-1]):
                 l_weights = []
                 for x in range(net_arch[i+1]):
-                    # l_weights.append(', '.join(['{:.2f}'.format(random.uniform(-1, 1))
-                    #                             for x in range(n + 1)]))
                     l_weights.append(
                         ', '.join(['{:.2f}'.format(x) for x in np.random.normal(size=n+1)]))
-                # print(l_weights)
                 weights.append('; '.join(l_weights))
 
             weights_txt = '\n'.join(weights)
-            # print('-'*50)
-            # print('WEIGHTS')
-            # print('-'*50)
-            # print(weights_txt)
+ 
             with open('{}/initial_weights.txt'.format(net_folder), 'w') as w_file:
                 w_file.write(weights_txt)
 
             # Generating Architecture
             arch_txt = '\n'.join(str(v) for v in [regularization] + net_arch)
 
-            # print('-'*50)
-            # print('ARCHITECTURE')
-            # print('-'*50)
-            # print(arch_txt)
             with open('{}/network.txt'.format(net_folder), 'w') as a_file:
                 a_file.write(arch_txt)
 
-            # training nn with:
-            # architecture, weights, alpha, j_threshold, max_iterations,
-            # batch_size, regularization_factor
-
-            # -----------
-            # UNIQUE TRAINING HAS TO REMOVE COMMENTS
-            # network, training_result = bp.backpropagation('{}/network.txt'.format(net_folder),
-            #                                                 '{}/initial_weights.txt'.format(net_folder),
-            #                                                 '{}/dataset.txt'.format(test_folder),
-            #                                                 max_iterations, alpha, logger=logger,
-            #                                                 less_acceptable_difference=0.000001)
-
-            # -----------
-
-                     # dataset, k_fold, test_folder, max_iterations, alpha, beta=0.9, less_acceptable_difference=0.0001,
-#                      momentum=True, logger=logger
             r = cross_validation(dataset, k_fold, net_folder, original_labels, max_iterations, alpha,
                                  beta=beta, less_acceptable_difference=0.000001, 
                                  patience=patience, logger=logger)
 
             epochs_trained = len(r[LOSS])
 
-            # r[FOLD].extend([test] * epochs_trained)
-            # r[EPOCH].extend(list(range(1, epochs_trained + 1)))
             r[ARCHITECTURE].extend([net_arch] * epochs_trained)
 
-            # print('TEST Results')
-            # print(test_results)
-            # # print('\n\n\nDATA Test')
-            # # print(pd.DataFrame(test_results))
-            # print('\n\n\nRRR')
-            # print(r)
-            # print('\\\\DATA R')
-            # print(pd.DataFrame(r))
             for k in r.keys():
                 test_results[k].extend(r[k])
 
-
-            # print(test_results)
-
             result_frame = pd.DataFrame(test_results)
-
-            # print(result_frame.head(5))
-            # print(result_frame.tail(5))
-            
             result_frame.to_csv('{}/result.csv'.format(test_folder), index=False)
-
-            # if test_result_output:
-            #     result_frame = pd.DataFrame(test_results)
-            #     result_frame.to_csv(test_result_output, index=False)
-            # getting result
-
-            # -------------
-
-            # result csv
-            # test epoch arch loss acc val_acc val_loss
-            # prec_macro, preci_micro, rec_macro, rec_micro,
-            # labels_M_vp,labels_M_fp,labels_M_fn,labels_M_precision,labels_M_recall,labels_M_f_measure
-
-            # epochs_trained = len(training_result['loss'])
-
-            # result_final['test'].extend([test] * epochs_trained)
-            # result_final['epoch'].extend(list(range(1, epochs_trained + 1)))
-            # result_final['architecture'].extend([net_arch] * epochs_trained)
-            # result_final['loss'].extend(training_result['loss'])
-            # result_final['acc'].extend(training_result['acc'])
 
             test += 1
             print()
@@ -604,11 +492,7 @@ def execute(filename, separator, k_fold, initial_layer,
     print()
     print('Time elapsed {} seconds'.format(end - start))
 
-    # print(test_results)
-
     result_frame = pd.DataFrame(test_results)
-    # print(result_frame.head(5))
-    # print(result_frame.tail(5))
     result_frame.to_csv('{}/result.csv'.format(test_folder), index=False)
 
 
