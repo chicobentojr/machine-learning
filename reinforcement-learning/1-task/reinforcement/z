@@ -1,0 +1,96 @@
+Starting on 9-9 at 17:23:42
+compute Action From Values
+state TERMINAL_STATE
+self values {'TERMINAL_STATE': 0}
+mpd actions () 0
+
+returning action from value None 
+
+compute Action From Values
+state (0, 0)
+self values {(0, 0): 0, 'TERMINAL_STATE': 0}
+mpd actions ('exit',) 1
+
+returning action from value exit 
+
+comput QValue from Values
+
+getting transition from (0, 0) with exit
+transitions [('TERMINAL_STATE', 1.0)]
+transition from (0, 0) to TERMINAL_STATE with prob 1.0 and reward 10
+
+returning qvalue from state (0, 0) with action exit as 10.0 
+
+compute Action From Values
+state (0, 1)
+self values {(0, 1): 0, (0, 0): 0, 'TERMINAL_STATE': 0}
+mpd actions ('north', 'west', 'south', 'east') 4
+
+returning action from value exit 
+
+comput QValue from Values
+
+getting transition from (0, 1) with north
+transitions [((0, 1), 0.0), ((0, 2), 1.0)]
+transition from (0, 1) to (0, 1) with prob 0.0 and reward 0.0
+transition from (0, 1) to (0, 2) with prob 1.0 and reward 0.0
+
+returning qvalue from state (0, 1) with action north as 0.0 
+
+comput QValue from Values
+
+getting transition from (0, 1) with east
+transitions [((0, 1), 1.0), ((0, 0), 0.0), ((0, 2), 0.0)]
+transition from (0, 1) to (0, 1) with prob 1.0 and reward 0.0
+transition from (0, 1) to (0, 0) with prob 0.0 and reward 0.0
+transition from (0, 1) to (0, 2) with prob 0.0 and reward 0.0
+
+returning qvalue from state (0, 1) with action east as 0.0 
+
+comput QValue from Values
+
+getting transition from (0, 1) with south
+transitions [((0, 1), 0.0), ((0, 0), 1.0)]
+transition from (0, 1) to (0, 1) with prob 0.0 and reward 0.0
+transition from (0, 1) to (0, 0) with prob 1.0 and reward 0.0
+
+returning qvalue from state (0, 1) with action south as 0.0 
+
+comput QValue from Values
+
+getting transition from (0, 1) with west
+transitions [((0, 1), 1.0), ((0, 0), 0.0), ((0, 2), 0.0)]
+transition from (0, 1) to (0, 1) with prob 1.0 and reward 0.0
+transition from (0, 1) to (0, 0) with prob 0.0 and reward 0.0
+transition from (0, 1) to (0, 2) with prob 0.0 and reward 0.0
+
+returning qvalue from state (0, 1) with action west as 0.0 
+
+compute Action From Values
+state (0, 2)
+self values {(0, 1): 0, (0, 0): 0, 'TERMINAL_STATE': 0, (0, 2): 0}
+mpd actions ('exit',) 1
+
+returning action from value exit 
+
+comput QValue from Values
+
+getting transition from (0, 2) with exit
+transitions [('TERMINAL_STATE', 1.0)]
+transition from (0, 2) to TERMINAL_STATE with prob 1.0 and reward -10
+
+returning qvalue from state (0, 2) with action exit as -10.0 
+
+
+VALUE ITERATION ROUND 0 
+
+self values {}
+states ['TERMINAL_STATE', (0, 0), (0, 1), (0, 2)]
+compute Action From Values
+state TERMINAL_STATE
+self values {}
+mpd actions () 0
+
+returning action from value None 
+
+None
