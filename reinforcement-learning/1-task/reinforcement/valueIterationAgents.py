@@ -49,20 +49,20 @@ class ValueIterationAgent(ValueEstimationAgent):
         # Write value iteration code here
         "*** YOUR CODE HERE ***"
 
-        print '\nINITING ITERATION AGENT WITH {} ITERATIONS [values {}]\n'.format(
-            iterations, self.values)
+        # print '\nINITING ITERATION AGENT WITH {} ITERATIONS [values {}]\n'.format(
+        #     iterations, self.values)
 
         for iteration in range(iterations):
-            print '\nVALUE ITERATION ROUND', iteration, '\n'
-            print 'self values', self.values
+            # print '\nVALUE ITERATION ROUND', iteration, '\n'
+            # print 'self values', self.values
             states = self.mdp.getStates()
-            print 'states', states
+            # print 'states', states
             iteration_values = self.values.copy()
             for state in states:
                 actions = self.mdp.getPossibleActions(state)
                 state_value = 0
-                print 'self values', self.values
-                print 'iteration values', iteration_values
+                # print 'self values', self.values
+                # print 'iteration values', iteration_values
                 actions_values = util.Counter()
                 for action in actions:
                     transitions = self.mdp.getTransitionStatesAndProbs(
@@ -73,18 +73,18 @@ class ValueIterationAgent(ValueEstimationAgent):
                         actions_values[action] += prob * \
                             (reward + self.discount *
                              iteration_values[next_state])
-                        print 'for state {} doing {} with {} prob to {} receive {} total v {}'.format(
-                            state, action, prob, next_state, reward, actions_values[action])
+                        # print 'for state {} doing {} with {} prob to {} receive {} total v {}'.format(
+                        #     state, action, prob, next_state, reward, actions_values[action])
                 best_action = actions_values.argMax()
                 best_action_value = actions_values[best_action]
 
-                print 'updating state {} to value {} from action {}\n'.format(
-                    state, best_action_value, best_action)
+                # print 'updating state {} to value {} from action {}\n'.format(
+                #     state, best_action_value, best_action)
                 self.values[state] = best_action_value
 
-        print 'self values after {} iteration {}'.format(
-            iterations, self.values)
-        print '\nEND ITERATION\n'
+        # print 'self values after {} iteration {}'.format(
+        #     iterations, self.values)
+        # print '\nEND ITERATION\n'
 
     def getValue(self, state):
         """
@@ -99,26 +99,26 @@ class ValueIterationAgent(ValueEstimationAgent):
         """
         "*** YOUR CODE HERE ***"
 
-        print 'COMPUT QVALUE FROM VALUES s {} a {} [{}]\n'.format(
-            state, action, self.values)
+        # print 'COMPUT QVALUE FROM VALUES s {} a {} [{}]\n'.format(
+        #     state, action, self.values)
 
         q = 0
         best_state = self.values.argMax()
-        print 'best state {}'.format(best_state)
+        # print 'best state {}'.format(best_state)
 
-        print 'getting transition from', state, 'with', action
+        # print 'getting transition from', state, 'with', action
         transitions = self.mdp.getTransitionStatesAndProbs(state, action)
 
-        print 'transitions', transitions
+        # print 'transitions', transitions
         for next_state, prob in transitions:
             reward = self.mdp.getReward(state, action, next_state)
 
             q += prob * (reward + self.discount * self.values[next_state])
 
-            print 'transition from', state, 'to', next_state, 'with prob', prob, 'and reward', reward
-        print ''
+            # print 'transition from', state, 'to', next_state, 'with prob', prob, 'and reward', reward
+        # print ''
 
-        print 'returning qvalue from state', state, 'with action', action, 'as', q, '\n'
+        # print 'returning qvalue from state', state, 'with action', action, 'as', q, '\n'
         return q
 
     def computeActionFromValues(self, state):
@@ -131,14 +131,14 @@ class ValueIterationAgent(ValueEstimationAgent):
           terminal state, you should return None.
         """
         "*** YOUR CODE HERE ***"
-        print 'COMPUTE ACTION FROM VALUES s {} [values {}]\n'.format(
-            state, self.values)
+        # print 'COMPUTE ACTION FROM VALUES s {} [values {}]\n'.format(
+        #     state, self.values)
 
         actions = self.mdp.getPossibleActions(state)
         best_state = self.values.argMax()
 
-        print 'possible actions', actions
-        print 'best state {}'.format(best_state)
+        # print 'possible actions', actions
+        # print 'best state {}'.format(best_state)
 
         best_action = None
 
@@ -152,19 +152,20 @@ class ValueIterationAgent(ValueEstimationAgent):
             for action in actions:
                 transitions = self.mdp.getTransitionStatesAndProbs(
                     state, action)
-                print 'for action {} are this transitions {}'.format(
-                    action, transitions)
+                # print 'for action {} are this transitions {}'.format(
+                #     action, transitions)
                 for next_state, prob in transitions:
                     reward = self.mdp.getReward(state, action, next_state)
-                    print 'transition {} from {} to {} with prob {} and reward {}'.format(
-                        action, state, next_state, prob, reward)
-
-                    actions_values[action] = prob * \
+                    actions_values[action] += prob * \
                         (reward + self.values[next_state])
+                    # print 'transition {} from {} to {} with prob {} and reward {} act_val {}'.format(
+                    #     action, state, next_state, prob, reward, actions_values[action])
+
+        # print 'action values {}'.format(actions_values)
         best_action = actions_values.argMax()
 
-        print 'returning action {} from state {} with {}\n'.format(
-            best_action, state, actions_values[best_action])
+        # print 'returning action {} from state {} with {}\n'.format(
+        #     best_action, state, actions_values[best_action])
         return best_action
 
     def getPolicy(self, state):
