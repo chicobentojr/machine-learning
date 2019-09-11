@@ -176,5 +176,4 @@ class ValueIterationAgent(ValueEstimationAgent):
         return self.computeActionFromValues(state)
 
     def getQValue(self, state, action):
-        print 'getQValue action', action
         return self.computeQValueFromValues(state, action)
