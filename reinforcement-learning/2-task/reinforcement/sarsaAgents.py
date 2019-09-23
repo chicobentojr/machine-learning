@@ -88,7 +88,7 @@ class SarsaAgent(ReinforcementAgent):
 
         for action in actions:
             q_value = self.getQValue(state, action)
-            if not max_value or q_value > max_value:
+            if max_value is None or q_value > max_value:
                 max_value = q_value
 
         return max_value
@@ -110,7 +110,7 @@ class SarsaAgent(ReinforcementAgent):
 
         for action in actions:
             q_value = self.getQValue(state, action)
-            if q_value > best_action_value or not best_action_value:
+            if best_action_value is None or q_value > best_action_value:
                 best_action_value = q_value
                 best_action = action
 
