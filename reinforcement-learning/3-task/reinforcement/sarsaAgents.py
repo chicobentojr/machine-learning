@@ -58,6 +58,8 @@ class SarsaAgent(ReinforcementAgent):
 
         "*** YOUR CODE HERE ***"
         self.Q = util.Counter()
+        self.eligibility_traces = util.Counter()
+        self.lamda = lamda
 
     def getQValue(self, state, action):
         """
@@ -68,6 +70,7 @@ class SarsaAgent(ReinforcementAgent):
         "*** YOUR CODE HERE ***"
         if state not in self.Q.keys():
             self.Q[state] = util.Counter()
+            self.eligibility_traces[state] = util.Counter()
 
         return self.Q[state][action]
 
@@ -161,10 +164,17 @@ class SarsaAgent(ReinforcementAgent):
         next_action = self.getAction(nextState)
         next_q_value = self.getQValue(nextState, next_action)
 
-        new_q_value = q_value + self.alpha * \
-            (reward + self.discount * next_q_value - q_value)
+        td_error = reward + self.discount * next_q_value - q_value
 
-        self.Q[state][action] = new_q_value
+        # new_q_value = q_value + self.alpha * td_error
+
+        for q_state in self.Q.keys():
+            for q_action in self.Q[q_state].keys():
+                self.Q[q_state][q_action] += self.alpha * td_error * \
+                    self.eligibility_traces[q_state][q_action]
+                self.eligibility_traces[q_state][q_action] *= self.lamda
+
+        # self.Q[state][action] = new_q_value
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
