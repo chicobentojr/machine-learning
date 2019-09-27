@@ -70,6 +70,8 @@ class SarsaAgent(ReinforcementAgent):
         "*** YOUR CODE HERE ***"
         if state not in self.Q.keys():
             self.Q[state] = util.Counter()
+        
+        if state not in self.eligibility_traces.keys():
             self.eligibility_traces[state] = util.Counter()
 
         return self.Q[state][action]
@@ -168,12 +170,19 @@ class SarsaAgent(ReinforcementAgent):
 
         # new_q_value = q_value + self.alpha * td_error
 
+        self.eligibility_traces[state][action] += 1
+
         for q_state in self.Q.keys():
             for q_action in self.Q[q_state].keys():
                 self.Q[q_state][q_action] += self.alpha * td_error * \
                     self.eligibility_traces[q_state][q_action]
                 self.eligibility_traces[q_state][q_action] *= self.lamda
 
+        if not self.getLegalActions(nextState):
+            for e_state in self.eligibility_traces.keys():
+                self.eligibility_traces[e_state] = util.Counter()
+
+        # print 'self traces {}'.format(self.eligibility_traces)
         # self.Q[state][action] = new_q_value
 
     def getPolicy(self, state):
