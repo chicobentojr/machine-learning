@@ -1,0 +1,28 @@
+PACMAN: 
+------------------------------------------------------------
+Lambda	Retorno	        Treino Chave	 Partidas vencidas
+------------------------------------------------------------
+0,0     -57,78	        1100 episódios	 10
+0,1	     30,96	        1000 episódios	 10
+0,3	     56,32	         800 episódios	 10
+0,5	     68,20	         800 episódios	 10
+0,7	    -67,10	        1000 episódios	  7
+0,9	    -170,68 	    1300 episódios	 10
+1,0	    -271,38	        1500 episódios	  7
+
+
+Análise:
+
+Observando os valores podemos perceber que o melhor valor de lambda para o problema é 0,5
+entre as opções [0; 0,1; 0,3; 0,5; 0,7; 0,9; 1]
+
+A partir do aumento desse valor de lambda os resultados começam a piorar chegando no pior
+resultado quando o lambda é 1.
+
+O números de vitórias também diminui quando o valor de lambda é maior que 0,5, com exceção 
+de lambda = 0,9 que, mesmo com o retorno médio de todo o treinamento sendo negativo, 
+conseguiu 10 vitórias durante o teste. 
+
+Outro ponto importante é que o número de treinos (Treino Chave) para o agente conseguir um
+retorno positivo nos últimos 100 treinos também segue a distribuição do retorno médio de 
+todo o treinamento.
