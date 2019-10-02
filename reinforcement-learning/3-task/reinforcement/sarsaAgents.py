@@ -67,14 +67,7 @@ class SarsaAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        if state not in self.Q.keys():
-            self.Q[state] = util.Counter()
-        
-        if state not in self.eligibility_traces.keys():
-            self.eligibility_traces[state] = util.Counter()
-
-        return self.Q[state][action]
+        return self.Q[(state, action)]
 
     def computeValueFromQValues(self, state):
         """
@@ -110,16 +103,15 @@ class SarsaAgent(ReinforcementAgent):
         if not actions:
             return None
 
-        best_action = random.choice(actions)
-        best_action_value = None
+        best_actions = []
+        best_action_value = self.getValue(state)
 
         for action in actions:
             q_value = self.getQValue(state, action)
-            if best_action_value is None or q_value > best_action_value:
-                best_action_value = q_value
-                best_action = action
+            if q_value == best_action_value:
+                best_actions.append(action)
 
-        return best_action
+        return random.choice(best_actions)
 
     def computeAction(self, state):
         """
@@ -135,7 +127,6 @@ class SarsaAgent(ReinforcementAgent):
         # Pick Action
         legalActions = self.getLegalActions(state)
         action = None
-        "*** YOUR CODE HERE ***"
         if legalActions:
             if util.flipCoin(self.epsilon):
                 action = random.choice(legalActions)
@@ -168,22 +159,16 @@ class SarsaAgent(ReinforcementAgent):
 
         td_error = reward + self.discount * next_q_value - q_value
 
-        # new_q_value = q_value + self.alpha * td_error
+        self.eligibility_traces[(state, action)] += 1
 
-        self.eligibility_traces[state][action] += 1
-
-        for q_state in self.Q.keys():
-            for q_action in self.Q[q_state].keys():
-                self.Q[q_state][q_action] += self.alpha * td_error * \
-                    self.eligibility_traces[q_state][q_action]
-                self.eligibility_traces[q_state][q_action] *= self.lamda
+        for e_state, e_action in self.eligibility_traces.keys():
+            self.Q[(e_state, e_action)] += self.alpha * td_error * \
+                self.eligibility_traces[(e_state, e_action)]
+            self.eligibility_traces[(e_state, e_action)
+                                    ] *= self.discount * self.lamda
 
         if not self.getLegalActions(nextState):
-            for e_state in self.eligibility_traces.keys():
-                self.eligibility_traces[e_state] = util.Counter()
-
-        # print 'self traces {}'.format(self.eligibility_traces)
-        # self.Q[state][action] = new_q_value
+            self.eligibility_traces = util.Counter()
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
