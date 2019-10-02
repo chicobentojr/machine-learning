@@ -55,11 +55,8 @@ class QLearningAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        if state not in self.Q.keys():
-            self.Q[state] = util.Counter()
 
-        return self.Q[state][action]
+        return self.Q[(state, action)]
 
     def computeValueFromQValues(self, state):
         """
@@ -95,16 +92,15 @@ class QLearningAgent(ReinforcementAgent):
         if not actions:
             return None
 
-        best_action = random.choice(actions)
-        best_action_value = None
+        best_actions = []
+        best_action_value = self.getValue(state)
 
         for action in actions:
             q_value = self.getQValue(state, action)
-            if best_action_value is None or q_value > best_action_value:
-                best_action_value = q_value
-                best_action = action
+            if q_value == best_action_value:
+                best_actions.append(action)
 
-        return best_action
+        return random.choice(best_actions)
 
     def getAction(self, state):
         """
@@ -120,7 +116,6 @@ class QLearningAgent(ReinforcementAgent):
         # Pick Action
         legalActions = self.getLegalActions(state)
         action = None
-        "*** YOUR CODE HERE ***"
         if legalActions:
             if util.flipCoin(self.epsilon):
                 action = random.choice(legalActions)
@@ -138,12 +133,6 @@ class QLearningAgent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        "*** YOUR CODE HERE ***"
-        # import json
-        # print 'Q Values'
-        # for key in self.Q.keys():
-        #     print '{} => {}'.format(key, self.Q[key])
-        # print ''
 
         q_value = self.getQValue(state, action)
 
@@ -153,18 +142,7 @@ class QLearningAgent(ReinforcementAgent):
         new_q_value = q_value + self.alpha * \
             (reward + self.discount * next_q_value - q_value)
 
-        self.Q[state][action] = new_q_value
-
-        # if False and state == (1, 2) and action == 'east':
-        #     print 'Update Q value in {} with {} to {} gaining {}'.format(
-        #         state, action, nextState, reward)
-        #     print 'epsilon {} discount {} alpha {}\n'.format(
-        #         self.epsilon, self.discount, self.alpha)
-        #     print 'Current Q Value {}'.format(q_value)
-        #     print 'Next best action {}'.format(next_action)
-        #     print 'Next Q Value {}'.format(next_q_value)
-        #     print 'New Q Value {}'.format(new_q_value)
-        #     print ''
+        self.Q[(state, action)] = new_q_value
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
