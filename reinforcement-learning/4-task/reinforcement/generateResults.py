@@ -3,8 +3,7 @@ import subprocess
 if __name__ == '__main__':
 
     plan_steps = map(str, range(5, 55, 5))
-    # kappas = map(str, [0, 0.1, 0.3])
-    kappas = map(str, [0])
+    kappas = map(str, [0, 0.1, 0.5])
     n_times = 5
 
     for kappa in kappas:
@@ -26,7 +25,7 @@ if __name__ == '__main__':
                            "--epsilon=0.1",
                            "--discount=0.9",
                            "--learningRate=0.5",
-                           #    "--kappa="+kappa,
+                           "--kappa="+kappa,
                            "--plan-steps="+step,
                            "--quiet",
                            "--text"]

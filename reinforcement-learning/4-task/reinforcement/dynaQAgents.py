@@ -51,7 +51,10 @@ class DynaQAgent(ReinforcementAgent):
         "*** YOUR CODE HERE ***"
         self.Q = util.Counter()
         self.model = util.Counter()
+        self.time_taken = util.Counter()
         self.plan_steps = plan_steps
+        self.kappa = kappa
+        self.timestep = 0
 
     def getQValue(self, state, action):
         """
@@ -152,9 +155,24 @@ class DynaQAgent(ReinforcementAgent):
         self.Q[(state, action)] = new_q_value  # Direct RL
         self.model[(state, action)] = (reward, nextState)  # Model learning
 
+        self.time_taken[(state, action)] = self.timestep
+
         # Planning
         for i in range(self.plan_steps):
             state, action = random.choice(self.model.keys())
+
+            # DynaQ+ exploration bonus
+            dyna_bonus = 0
+
+            if self.kappa > 0:
+                action = random.choice(self.getLegalActions(state))
+                dyna_bonus = self.kappa * \
+                    math.sqrt(self.timestep - self.time_taken[(state, action)])
+
+                # Checking if model has this legal action
+                if isinstance(self.model[(state, action)], int):
+                    self.model[(state, action)] = (0, state)
+
             reward, nextState = self.model[(state, action)]
 
             q_value = self.getQValue(state, action)
@@ -162,9 +180,11 @@ class DynaQAgent(ReinforcementAgent):
             next_q_value = self.getQValue(nextState, next_action)
 
             new_q_value = q_value + self.alpha * \
-                (reward + self.discount * next_q_value - q_value)
+                (reward + dyna_bonus + self.discount * next_q_value - q_value)
 
             self.Q[(state, action)] = new_q_value
+
+        self.timestep += 1
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
