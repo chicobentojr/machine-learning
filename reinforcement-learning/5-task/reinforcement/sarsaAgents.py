@@ -232,14 +232,34 @@ class ApproximateSarsaAgent(PacmanSarsaAgent):
           where * is the dotProduct operator
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if action is None:
+            return 0
+
+        features = self.featExtractor.getFeatures(state, action)
+
+        q_value = 0
+        for key, feature_value in features.items():
+            w = self.weights[key]
+            q_value += w * feature_value
+
+        return q_value
 
     def update(self, state, action, nextState, reward):
         """
                    Should update your weights based on transition
                 """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        q_value = self.getQValue(state, action)
+
+        next_action = self.getAction(nextState)
+        next_q_value = self.getQValue(nextState, next_action)
+
+        td_error = reward + self.discount * next_q_value - q_value
+
+        features = self.featExtractor.getFeatures(state, action)
+
+        for feature, feature_value in features.items():
+            self.weights[feature] += self.alpha * td_error * feature_value
 
     def final(self, state):
         "Called at the end of each game."
