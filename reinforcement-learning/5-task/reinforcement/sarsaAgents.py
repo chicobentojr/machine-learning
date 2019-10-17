@@ -18,7 +18,10 @@ from learningAgents import ReinforcementAgent
 from featureExtractors import *
 import collections
 
-import random, util, math
+import random
+import util
+import math
+
 
 class SarsaAgent(ReinforcementAgent):
     """
@@ -48,11 +51,15 @@ class SarsaAgent(ReinforcementAgent):
         - self.getLegalActions(state)
           which returns legal actions for a state
     """
+
     def __init__(self, epsilon_decay=1, lamda=0, **args):
         "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
 
         "*** YOUR CODE HERE ***"
+        self.Q = util.Counter()
+        self.eligibility_traces = util.Counter()
+        self.lamda = lamda
 
     def getQValue(self, state, action):
         """
@@ -60,9 +67,7 @@ class SarsaAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        return self.Q[(state, action)]
 
     def computeValueFromQValues(self, state):
         """
@@ -72,7 +77,19 @@ class SarsaAgent(ReinforcementAgent):
           terminal state, you should return a value of 0.0.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        actions = self.getLegalActions(state)
+
+        if not actions:
+            return 0.0
+
+        max_value = None
+
+        for action in actions:
+            q_value = self.getQValue(state, action)
+            if max_value is None or q_value > max_value:
+                max_value = q_value
+
+        return max_value
 
     def computeActionFromQValues(self, state):
         """
@@ -81,7 +98,20 @@ class SarsaAgent(ReinforcementAgent):
           you should return None.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        actions = self.getLegalActions(state)
+
+        if not actions:
+            return None
+
+        best_actions = []
+        best_action_value = self.getValue(state)
+
+        for action in actions:
+            q_value = self.getQValue(state, action)
+            if q_value == best_action_value:
+                best_actions.append(action)
+
+        return random.choice(best_actions)
 
     def computeAction(self, state):
         """
@@ -97,8 +127,11 @@ class SarsaAgent(ReinforcementAgent):
         # Pick Action
         legalActions = self.getLegalActions(state)
         action = None
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        if legalActions:
+            if util.flipCoin(self.epsilon):
+                action = random.choice(legalActions)
+            else:
+                action = self.computeActionFromQValues(state)
 
         return action
 
@@ -107,8 +140,7 @@ class SarsaAgent(ReinforcementAgent):
           Returns the action computed in computeAction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        return self.computeAction(state)
 
     def update(self, state, action, nextState, reward):
         """
@@ -120,7 +152,23 @@ class SarsaAgent(ReinforcementAgent):
           it will be called on your behalf
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        q_value = self.getQValue(state, action)
+
+        next_action = self.getAction(nextState)
+        next_q_value = self.getQValue(nextState, next_action)
+
+        td_error = reward + self.discount * next_q_value - q_value
+
+        self.eligibility_traces[(state, action)] += 1
+
+        for e_state, e_action in self.eligibility_traces.keys():
+            self.Q[(e_state, e_action)] += self.alpha * td_error * \
+                self.eligibility_traces[(e_state, e_action)]
+            self.eligibility_traces[(e_state, e_action)
+                                    ] *= self.discount * self.lamda
+
+        if not self.getLegalActions(nextState):
+            self.eligibility_traces = util.Counter()
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
@@ -132,7 +180,7 @@ class SarsaAgent(ReinforcementAgent):
 class PacmanSarsaAgent(SarsaAgent):
     "Exactly the same as SarsaAgent, but with different default parameters"
 
-    def __init__(self, epsilon=0.05,gamma=0.8,alpha=0.2, numTraining=0, **args):
+    def __init__(self, epsilon=0.05, gamma=0.8, alpha=0.2, numTraining=0, **args):
         """
         These default parameters can be changed from the pacman.py command line.
         For example, to change the exploration rate, try:
@@ -157,7 +205,7 @@ class PacmanSarsaAgent(SarsaAgent):
         method.
         """
         action = SarsaAgent.getAction(self, state)
-        self.doAction(state,action)
+        self.doAction(state, action)
         return action
 
 
@@ -169,6 +217,7 @@ class ApproximateSarsaAgent(PacmanSarsaAgent):
        and update.  All other SarsaAgent functions
        should work as is.
     """
+
     def __init__(self, extractor='IdentityExtractor', **args):
         self.featExtractor = util.lookup(extractor, globals())()
         PacmanSarsaAgent.__init__(self, **args)
